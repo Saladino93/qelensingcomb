@@ -218,7 +218,3 @@ for fgnamefile in fgnamefiles:
 
         dictionary.save(f'{fgnamefile}_{nu}_{i}')   
 
-dictionary = u.dictionary(savingdirectory)
-dictionary.read(f'{fgnamefile}_{nu}_{i}')
-print(dictionary.dictionary.keys())
- 
