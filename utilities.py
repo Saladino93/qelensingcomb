@@ -13,6 +13,8 @@ import itertools
 
 import pickle
 
+import re
+
 '''
 Summary of useful stuff here:
 
@@ -39,21 +41,98 @@ def interpolate(l, cl, modlmap):
 def fft(mappa):
     return enmap.samewcs(enmap.fft(mappa, normalize = 'phys'), mappa)
 
+#########################################
+
+def tfm_dict_to_matrix(estimators, dictionary, formato):
+    
+    keys = list(dictionary.keys())
+    N = len(estimators)
+    
+    all_combs = list(itertools.combinations_with_replacement(list(estimators), 2))
+    
+    element = dictionary[keys[0]]
+    
+    Q_ij = np.zeros((N, N, len(element)))
+    
+    for estA, estB in all_combs:
+
+            try:
+                quantity = dictionary[formato(estA, estB)]
+            except:
+                quantity = dictionary[formato(estB, estA)]
+
+            indexA = estimators.index(estA)
+            indexB = estimators.index(estB)
+
+            Q_ij[indexA, indexB] = quantity
+            Q_ij[indexB, indexA] = quantity
+    
+    return Q_ij
+
+def tfm_dict_to_array(estimators, dictionary, formato):
+    
+    keys = list(dictionary.keys())
+    N = len(keys)
+    
+    element = dictionary[keys[0]]
+    
+    Q_i = np.zeros((N, len(element)))
+    
+    for estA in estimators:
+
+            quantity = dictionary[formato(estA)]
+            
+            indexA = estimators.index(estA)
+
+            Q_i[indexA] = quantity
+    
+    return Q_i
+    
+def get_array_from_dict(element):
+    lista = []
+    
+    for name in element.keys():
+        uppercase = re.sub('[^A-Z]', '', name)
+        string = re.sub(r'[A-Z]+-', '', name)
+        lista += re.split('-', string)
+        
+    estimators = list(set(lista))
+    
+    if len(estimators) == len(lista):
+        formato = lambda estA: f'{uppercase}-{estA}'
+        result = tfm_dict_to_array(estimators, element, formato)
+    else:
+        formato = lambda estA, estB: f'{uppercase}-{estA}-{estB}'
+        result = tfm_dict_to_matrix(estimators, element, formato)
+        
+    return result
 
 
-def get_mean_and_cov_matrix(cents, N, pmock): #N number of sims, pmock list of cls
-    num_bins = len(cents)
-    pmock = pmock.reshape((N, num_bins))
+def get_element(element):
+    #If you have a dictionary
+    if isinstance(element, dict):  
+        result = get_array_from_dict(element)
+    #If you do not have a dictionary
+    else:
+        result = element
+    return result
+
+#########################################
+
+
+
+
+
+def get_mean_and_scatter(N, pmock): #N number of sims, pmock list of cls
+    
     mean = np.mean(pmock, axis = 0)
     diff = pmock-mean
-    m = 0
-    for i in range(N):
-        cl = diff[i, :]
-        m += np.outer(cl, cl)
+     
+    scatter = np.sum((diff)**2, axis = 0)/(N-1)
+    scatter /= N #for the mean
+    scatter = np.sqrt(scatter)
 
-    m = m/(N-1)
-
-    return mean, m, np.sqrt(np.diag(m))
+    return mean, scatter
 
 
 #########################################
@@ -527,15 +606,27 @@ class Plotting():
         if file_name is not None:
             plt.savefig(file_name+'.png')
         plt.title(self.title)
-        plt.xscale(self.xscale)
-        plt.yscale(self.yscale)
+        self.set_scales(self.xscale, self.yscale)
         plt.show()
         
-    def plot(self, l, cl, label = None, color = None):
-        plt.plot(l, cl, label = label, color = color)
+    def plot(self, l, cl, errs = None, label = None, color = None, ls = None):
+        if errs is not None:
+            plt.fill_between(l, cl-errs, cl+errs, color = color, alpha = 0.4)
+            #plt.errorbar(l, cl, errs, label = label, color = color, linestyle = ls)
+        plt.plot(l, cl, label = label, color = color, linestyle = ls)
         
-    def plotsel(self, l, cl, label = None, color = None):
+    def plotsel(self, l, cl, errs = None, label = None, color = None, ls = None):
         selection = (self.lminplot < l) & (l < self.lmaxplot)
-        self.plot(l[selection], cl[selection], label = label, color = color)
+        if errs is not None:
+            errs = errs[selection]
+        self.plot(l[selection], cl[selection], errs = errs, label = label, color = color, ls = ls)
+
+    def set_scales(self, xscale = None, yscale = None):
+        if xscale is None:
+            xscale = self.xscale
+        if yscale is None:
+            yscale = self.yscale
+        plt.xscale(xscale)
+        plt.yscale(yscale)
 
 #########################################

@@ -166,18 +166,17 @@ for fgnamefile in fgnamefiles:
             rec_fg_map_A = A.reconstruct(fg_fft_masked_A1, fg_fft_masked_A2)
             rec_fg_gauss_map_A = A.reconstruct(fg_gaussian_fft_masked_A1, fg_gaussian_fft_masked_A2)
 
-            rec_fg_map_B = B.reconstruct(fg_fft_masked_B1, fg_fft_masked_B2)
-            rec_fg_gauss_map_B = B.reconstruct(fg_gaussian_fft_masked_B1, fg_gaussian_fft_masked_B2)
+            if estA !=  estB:
+                rec_fg_map_B = B.reconstruct(fg_fft_masked_B1, fg_fft_masked_B2)
+                rec_fg_gauss_map_B = B.reconstruct(fg_gaussian_fft_masked_B1, fg_gaussian_fft_masked_B2)
+            else:
+                rec_fg_map_B = rec_fg_map_A
+                rec_fg_gauss_map_B = rec_fg_gauss_map_A
 
             #Calculate trispectrum bias, for A and B 
-            el, clfg_A = Binner.bin_maps(rec_fg_map_A, pixel_units = True)
-            el, clfg_gauss_A = Binner.bin_maps(rec_fg_gauss_map_A, pixel_units = True)
-            el, clfg_B = Binner.bin_maps(rec_fg_map_B, pixel_units = True)
-            el, clfg_gauss_B = Binner.bin_maps(rec_fg_gauss_map_B, pixel_units = True)
-
-
-            el, clfg_A_B = Binner.bin_maps(rec_fg_map_A, rec_fg_map_B)
-            el, clfg_gauss_A_B = Binner.bin_maps(rec_fg_gauss_map_A, rec_fg_gauss_map_B)
+            
+            el, clfg_A_B = Binner.bin_maps(rec_fg_map_A, rec_fg_map_B, pixel_units = True)
+            el, clfg_gauss_A_B = Binner.bin_maps(rec_fg_gauss_map_A, rec_fg_gauss_map_B, pixel_units = True)
             trispectrum_A_B = clfg_A_B-clfg_gauss_A_B
 
 
