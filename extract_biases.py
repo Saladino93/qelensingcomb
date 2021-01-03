@@ -146,7 +146,7 @@ for fgnamefile in fgnamefiles:
 
                 NAB_cross = A.get_Nl_cross(B)
                 el, NAB_cross_binned = Binner.bin_spectra(NAB_cross)
-                dictionary.add_to_subdictionary(noisedicttag, f'N_{estA}_{estB}', NAB_cross_binned)
+                dictionary.add_to_subdictionary(noisedicttag, f'N-{estA}-{estB}', NAB_cross_binned)
 
             cmb0_fft, cmb1_fft, fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2, kappa_fft_masked, gal_fft_map = LoadA.read_all(fgnamefile, i)			
             if nuA != nuB:
@@ -187,7 +187,7 @@ for fgnamefile in fgnamefiles:
             primary_A_B = primary_A+primary_B
 
             #Calculate primary for galaxy
-            tag_gal = f'P_{estA}'
+            tag_gal = f'PC-{estA}'
             if not dictionary.exists_in_subdictionary(primarycrossdicttag, tag_gal):
                 el, primary_gal_A = Binner.bin_maps(gal_fft_map, rec_fg_map_A, pixel_units = True)
                 dictionary.add_to_subdictionary(primarycrossdicttag, tag_gal, primary_gal_A)
@@ -203,9 +203,9 @@ for fgnamefile in fgnamefiles:
             el, secondary_A_B = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
             secondary_A_B *= 2
 
-            dictionary.add_to_subdictionary(trispectrumdicttag, f'T_{estA}_{estB}', trispectrum_A_B)
-            dictionary.add_to_subdictionary(primarydicttag, f'P_{estA}_{estB}', primary_A_B)
-            dictionary.add_to_subdictionary(secondarydicttag, f'S_{estA}_{estB}', secondary_A_B)
+            dictionary.add_to_subdictionary(trispectrumdicttag, f'T-{estA}-{estB}', trispectrum_A_B)
+            dictionary.add_to_subdictionary(primarydicttag, f'P-{estA}-{estB}', primary_A_B)
+            dictionary.add_to_subdictionary(secondarydicttag, f'S-{estA}-{estB}', secondary_A_B)
       
         dictionary.add('kk', clkk)
         dictionary.add('kg', clkg)

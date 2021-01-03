@@ -39,6 +39,23 @@ def interpolate(l, cl, modlmap):
 def fft(mappa):
     return enmap.samewcs(enmap.fft(mappa, normalize = 'phys'), mappa)
 
+
+
+def get_mean_and_cov_matrix(cents, N, pmock): #N number of sims, pmock list of cls
+    num_bins = len(cents)
+    pmock = pmock.reshape((N, num_bins))
+    mean = np.mean(pmock, axis = 0)
+    diff = pmock-mean
+    m = 0
+    for i in range(N):
+        cl = diff[i, :]
+        m += np.outer(cl, cl)
+
+    m = m/(N-1)
+
+    return mean, m, np.sqrt(np.diag(m))
+
+
 #########################################
 
 class Estimator(object):
@@ -433,7 +450,7 @@ class dictionary():
         output = pickle.load(data_file)
         data_file.close()
         self.dictionary = output
-
+        return self.dictionary
 #########################################
 
 
