@@ -155,6 +155,13 @@ for fgnamefile in fgnamefiles:
                 fg_fft_masked_B1, fg_gaussian_fft_masked_B1, fg_fft_masked_B2, fg_gaussian_fft_masked_B2 = fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2
 
 
+
+            #Calculate kk
+            el, clkk = Binner.bin_maps(kappa_fft_masked, pixel_units = True)
+            
+            #Calculate kg
+            el, clkg = Binner.bin_maps(kappa_fft_masked, gal_fft_map, pixel_units = True)
+
             #Calculate Q[Tf, Tf], for A and B
             rec_fg_map_A = A.reconstruct(fg_fft_masked_A1, fg_fft_masked_A2)
             rec_fg_gauss_map_A = A.reconstruct(fg_gaussian_fft_masked_A1, fg_gaussian_fft_masked_A2)
@@ -199,5 +206,19 @@ for fgnamefile in fgnamefiles:
             dictionary.add_to_subdictionary(trispectrumdicttag, f'T_{estA}_{estB}', trispectrum_A_B)
             dictionary.add_to_subdictionary(primarydicttag, f'P_{estA}_{estB}', primary_A_B)
             dictionary.add_to_subdictionary(secondarydicttag, f'S_{estA}_{estB}', secondary_A_B)
+      
+        dictionary.add('kk', clkk)
+        dictionary.add('kg', clkg)
+        dictionary.add('ells', el)
 
-            
+        if isinstance(nuA, list):
+            nu = nuA[0]
+        else:
+            nu = nuA
+
+        dictionary.save(f'{fgnamefile}_{nu}_{i}')   
+
+dictionary = u.dictionary(savingdirectory)
+dictionary.read(f'{fgnamefile}_{nu}_{i}')
+print(dictionary.dictionary.keys())
+ 

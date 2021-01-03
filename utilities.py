@@ -11,6 +11,7 @@ from pixell import enmap, utils as putils
 
 import itertools
 
+import pickle
 
 '''
 Summary of useful stuff here:
@@ -426,6 +427,12 @@ class dictionary():
         data_file = open(self.directory+name+'.pkl','wb')
         pickle.dump(self.dictionary, data_file)
         data_file.close()
+
+    def read(self, name):
+        data_file = open(self.directory+name+'.pkl','rb')
+        output = pickle.load(data_file)
+        data_file.close()
+        self.dictionary = output
 
 #########################################
 
