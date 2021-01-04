@@ -54,9 +54,9 @@ class Opt():
     def get_variance_part(self, a, theta):
         if theta.ndim > 3:
             #this is for auto
-            variance_part = modulo.einsum('...i, ...j, ...k, ...m , ijkm...->...', a, a, a, a, theta)
+            variance_part = np.einsum('...i, ...j, ...k, ...m , ijkm...->...', a, a, a, a, theta)
         else:
-            variance_part = modulo.einsum('...i, ...j, ij...->...', a, a, theta)
+            variance_part = np.einsum('...i, ...j, ij...->...', a, a, theta)
         return variance_part
 
     def get_final_variance_weights(self, x, ells, theory, theta, inv_variance):
@@ -67,9 +67,9 @@ class Opt():
     def get_bias_part(self, a, bias):
         if bias.ndim > 2:
             #this is for auto
-            bias_part = modulo.einsum('...i, ...j, ij...->...', a, a, bias)
+            bias_part = np.einsum('...i, ...j, ij...->...', a, a, bias)
         else:
-            bias_part = modulo.einsum('...i, i...->...', a, a, bias)
+            bias_part = np.einsum('...i, i...->...', a, a, bias)
         return bias_part
 
 
@@ -80,14 +80,14 @@ class Opt():
 
 
     def get_a(self, x, inv_variance):
-        a = x[:-self.nbins].reshape(self.nbins, self.lenestimators) if not inv_variance_b else x.reshape(self.nbins, self.lenestimators)
+        a = x[:-self.nbins].reshape(self.nbins, self.lenestimators) if not inv_variance else x.reshape(self.nbins, self.lenestimators)
         return a
 
     def get_weight_per_l(self, x, ells, theory, variance_part, inv_variance):
         if inv_variance:
             weight_per_l = self.get_mv_weights(ells, theory, variance_part)
         else:
-            weight_per_l = x[-self.N:]
+            weight_per_l = x[-self.nbins:]
         return weight_per_l
 
     def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False):
@@ -101,7 +101,7 @@ class Opt():
             total_result = 0.
 
             biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)
-            squarednoiseterm = self._get_combined(ells, weight_per_l**2., y, theory**2.) 
+            squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.) 
 
             total_result = squarednoiseterm+biasterm*fb
 
@@ -112,7 +112,7 @@ class Opt():
             a = self.get_a(x, inv_variance)
             variance_part = self.get_variance_part(a, theta)
             weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance)
-            squarednoiseterm = self._get_combined(ells, weight_per_l**2., y, theory**2.)
+            squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.)
             noiseterm = np.sqrt(squarednoiseterm)
             return noiseterm
 
@@ -131,7 +131,7 @@ class Opt():
         return np.trapz(y*ells, ells)*(2*np.pi)/(2*np.pi)**2*factor
        
 
-    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], verbose = True, jit_version = True, noisebiasconstr = False, fb = 1., inv_variance = False):
+    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True):
         '''
         Methods: diff-ev, SLSQP
         '''
@@ -162,15 +162,15 @@ class Opt():
         bnds = [(bounds[0], bounds[1]) for i in range(dims*self.nbins)]
         bnds = tuple(bnds)
 
-        if inv_variance_b:
+        if inv_variance:
             x0 = x0
         else:
             x0 = np.append(x0, bs0)
 
-        if positive_weights:
-            cons = ({'type': 'eq', 'fun': self.get_constraint()}, {'type': 'ineq', 'fun': self.get_constraint_ineq()})
-        else:
-            cons = ({'type': 'eq', 'fun': self.get_constraint()})
+        #if positive_weights:
+        #    cons = ({'type': 'eq', 'fun': self.get_constraint()}, {'type': 'ineq', 'fun': self.get_constraint_ineq()})
+        #else:
+        #    cons = ({'type': 'eq', 'fun': self.get_constraint()})
 
 
         weights_name = optversion['weights_name']
@@ -187,7 +187,7 @@ class Opt():
         else:
             prepare = lambda x: x
 
-        f, noisef, biasf = self.get_f_total(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance)
+        f, noisef, biasf = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance)
         self.f = f
         self.noisef = noisef
         self.biasf = biasf
@@ -200,16 +200,18 @@ class Opt():
             a = self.get_a(x, inv_variance)
             a[:, 2] = 1-a[:, 0]-a[:, 1]
             if not inv_variance:
-                x[:-self.N] = a.flatten()
+                x[:-self.nbins] = a.flatten()
             else:
                 x = a.flatten()
             return x
 
         def penalty1(x):
             x = np.array(x)
-            b = x[-self.N:]
+            b = x[-self.nbins:]
             res = self.integerate_discrete(b, self.ells_selected)
             return 1-res
+
+        k = 1e20
 
         if noisebiasconstr:
             gtol = gtol
@@ -223,33 +225,36 @@ class Opt():
             def penalty(x):
                 return 0.0       
 
-        if inv_variance_b:
+        if inv_variance:
             penalty = None 
             if noisebiasconstr:
                 @quadratic_equality(condition=extra_constraint, k = k)
                 def penalty(x):
                     return 0.0
 
+        mon = VerboseMonitor(100)
+
+        func = lambda x: f(np.array(x))
         result = my.diffev(func, x0, npop = 10*len(list(bnds)), bounds = bnds, ftol = 1e-11, gtol = gtol, maxiter = 1024**3, maxfun = 1024**3, constraints = constraint_eq, penalty = penalty, full_output=True, itermon=mon)
 
         result = Res(result[0], self.ells_selected)
         self.result = result
         
-        ws = get_weights(result.x, inv_variance, verbose = verbose)        
+        ws = self.get_weights(result.x, inv_variance, verbose = verbose)        
         weights_per_l = self.get_final_variance_weights(result.x, self.ells_selected, self.theory_selected, self.theta_selected, inv_variance)
 
         result.set_weights(tuple(list(ws)+[weights_per_l]))
         
         return result
        
-    def get_weights(self, x = None, inv_variance, verbose = True):
+    def get_weights(self, x, inv_variance, verbose = True):
 
         aa = self.get_a(x, inv_variance)
         if verbose:
             print('Weights in columns', aa)
             print('Sum', np.sum(aa, axis = 1))
 
-        ns = aa.shape[0]
+        ns = aa.shape[1]
         lista = []
         for i in range(ns):
             lista += [aa[:, i]]

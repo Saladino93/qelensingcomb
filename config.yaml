@@ -1,15 +1,26 @@
 sims_directory: '../extract_sehgal/manusmaps/flat_maps_large/latestmaps13092020/'
-savingdirectory: ''
+savingdirectory: 'output_biases/'
+
+analysisdirectory: 'output/'
+plotsdirectory: 'plots/'
+
 #ells, ctt, ctt_lensed, detectnoise, fftot, fg, ftSZ
 spectra_path: '../extract_sehgal/LensQuEst-1/spectra_lensqest_un_len_detectnoise_fftot_fg_ftSZ.txt'
+
+
+optversion: {'weights_name': 'absbias', 'sum_biases_squared': False, 'abs_biases': True, 'bias_squared': False,
+                      'color': 'purple', 'latexformula': '\sigma^2(\hat{A}_{\rm{comb}})+\left(\int_{\vec{L}}\vec{a}^TB\vec{a}\right)^2'}
+
 
 Lmin: 20
 Lmax: 6000
 
 logmode: True
-nlogBins: 20
-deltalplot: 50
+nlogBins: 15
+deltalplot: 100
 
+lmin_sel: 30
+lmax_sel: 1200
 
 Nsims: 80
 
@@ -17,7 +28,21 @@ fgnamefiles: ['tsz']
 
 
 estimators:
-
+        hu_ok: 
+                nu: 148
+                hardening: ''
+        shear:
+                nu: 148
+                hardening: ''
         bh:
                 nu: 148
                 hardening: src
+
+
+noisekey: N
+trispectrumkey: T
+primarykey: P
+secondarykey: S
+primarycrosskey: PC
+
+

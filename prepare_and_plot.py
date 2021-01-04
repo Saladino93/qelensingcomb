@@ -55,6 +55,18 @@ nu = estimators_dictionary[estimators[0]]['nu']
 
 del estimators_dictionary
 
+
+noisetag = data['noisekey']
+trispectrumtag = data['trispectrumkey']
+primarytag = data['primarykey']
+secondarytag = data['secondarykey']
+primarycrosstag = data['primarycrosskey']
+
+biasestags = [trispectrumtag, primarytag, secondarytag]
+
+#NOTE
+function = lambda x: abs(x)
+
 for fgnamefile in fgnamefiles:
     for i in range(1):
 
@@ -77,8 +89,8 @@ for fgnamefile in fgnamefiles:
         
             mean, scatter = u.get_mean_and_scatter(Nsims, total)
                         
-            outname = f'{k}.npy'
-            np.save(P/outname, mean)
+            getoutname = lambda key: f'{key}.npy'
+            np.save(P/getoutname(k), mean)
         
             els = ['ells']
             if not k in els:
@@ -88,5 +100,20 @@ for fgnamefile in fgnamefiles:
                 factor = np.sqrt(A/A_octanct)
                 np.save(P/outname, scatter)
 
+        noises = np.load(P/getoutname(noisetag))
+        kg = np.load(P/getoutname('kg'))
+        kk = np.load(P/getoutname('kk'))
+        gg = np.load(P/getoutname('gg'))
+
+        theta = u.getcovarianceauto(noises, kk, fsky = 1.0)
+        thetacross = u.getcovariancecross(noises, kk, kg, gg)
+
+        theta = np.save(P/getoutname('theta'), theta)
+        thetacross = np.save(P/getoutname('thetacross'), thetacross)
+
+        totalbias = 0.
+        for tag in biasestags:
+            totalbias += function(np.load(P/getoutname(tag)))
+        np.save(P/getoutname('totalbias'), totalbias)
 
 Plotting = u.Plotting('Biases', lminplot = 30, lmaxplot = 2000, xscale = 'log')

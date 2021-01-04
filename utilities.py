@@ -32,6 +32,69 @@ def fft
 
 def interpolate
 '''
+#########################################
+
+def Nmodes(L, deltaL, fsky = 1.):
+    result = 2*L*deltaL*fsky
+    function = interpolation(L, result)
+    return function
+
+def Nmodesprecise(lEdges):
+    Nmodes = lEdges[1:]**2. - lEdges[:-1]**2
+    return Nmodes
+
+#get variance on auto correlation kk, given theory and gaussian noise
+def sigma2L(Clkkf, NL):
+    return 2*(Clkkf+NL)**2.
+
+
+def getCov_ij_mn(cim, cjn, cin, cjm, l, deltal, fsky = 0.4, divide_deltal = False):
+    result = cim*cjn+cin*cjm
+    if divide_deltal:
+        result /= (2*deltal*l*fsky)
+    return np.nan_to_num(result)
+
+def getcovarianceauto(noises, theorykk, fsky = 1.0):
+    
+    N = noises.shape[0]
+    M = noises.shape[-1]
+
+    theta_ijmn = np.zeros((N, N, N, N, M))
+
+    for i in range(N):
+        for j in range(N):
+            for m in range(N):
+                for n in range(N):
+                    data_im = noises[i, m]
+                    data_jm = noises[j, m]
+                    data_jn = noises[j, n]
+                    data_in = noises[i, n]
+
+                    cim = data_im+theorykk
+                    cjn = data_jn+theorykk
+                    cin = data_in+theorykk
+                    cjm = data_jm+theorykk
+
+                    theta_ijmn[i, j, m, n] = getCov_ij_mn(cim = cim, cjn = cjn, cin = cin, cjm = cjm,
+                                                l = None, deltal = None, fsky = fsky, divide_deltal = False)
+                    
+    return theta_ijmn
+
+def getcovariancecross(noises, kk, kg, gg):
+
+    N = noises.shape[0]
+    M = noises.shape[-1]
+    Q_ij = np.zeros((N, N, M))
+
+    for i in range(N):
+        for j in range(N):
+
+            quantity = noises[i, j]
+
+            Q_ij[i, j] = (quantity+kk)*gg+kg**2
+            Q_ij[j, i] = (quantity+kk)*gg+kg**2
+
+    return Q_ij
 
 #########################################
 

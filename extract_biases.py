@@ -49,6 +49,14 @@ nlogBins = data['nlogBins']
 deltal = data['deltalplot']
 
 
+
+noisedicttag = data['noisekey']
+trispectrumdicttag = data['trispectrumkey']
+primarydicttag = data['primarykey']
+secondarydicttag = data['secondarykey']
+primarycrossdicttag = data['primarycrosskey']
+
+
 savingdirectory = data['savingdirectory']
 spectra_path = data['spectra_path']
 sims_directory = data['sims_directory']
@@ -92,12 +100,6 @@ for fgnamefile in fgnamefiles:
 
         dictionary = u.dictionary(savingdirectory)
         
-        noisedicttag = 'N'
-        trispectrumdicttag = 'T'
-        primarydicttag = 'P'
-        secondarydicttag = 'S'
-        primarycrossdicttag = 'PC'
-
         dictionary.create_subdictionary(noisedicttag)
         dictionary.create_subdictionary(trispectrumdicttag)
         dictionary.create_subdictionary(primarydicttag)
@@ -146,7 +148,7 @@ for fgnamefile in fgnamefiles:
 
                 NAB_cross = A.get_Nl_cross(B)
                 el, NAB_cross_binned = Binner.bin_spectra(NAB_cross)
-                dictionary.add_to_subdictionary(noisedicttag, f'N-{estA}-{estB}', NAB_cross_binned)
+                dictionary.add_to_subdictionary(noisedicttag, f'{noisedicttag}-{estA}-{estB}', NAB_cross_binned)
 
             cmb0_fft, cmb1_fft, fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2, kappa_fft_masked, gal_fft_map = LoadA.read_all(fgnamefile, i)			
             if nuA != nuB:
@@ -161,6 +163,9 @@ for fgnamefile in fgnamefiles:
             
             #Calculate kg
             el, clkg = Binner.bin_maps(kappa_fft_masked, gal_fft_map, pixel_units = True)
+
+            #Calculate gg
+            el, clgg = Binner.bin_maps(gal_fft_map, gal_fft_map, pixel_units = True)
 
             #Calculate Q[Tf, Tf], for A and B
             rec_fg_map_A = A.reconstruct(fg_fft_masked_A1, fg_fft_masked_A2)
@@ -186,7 +191,7 @@ for fgnamefile in fgnamefiles:
             primary_A_B = primary_A+primary_B
 
             #Calculate primary for galaxy
-            tag_gal = f'PC-{estA}'
+            tag_gal = f'{primarycrossdicttag}-{estA}'
             if not dictionary.exists_in_subdictionary(primarycrossdicttag, tag_gal):
                 el, primary_gal_A = Binner.bin_maps(gal_fft_map, rec_fg_map_A, pixel_units = True)
                 dictionary.add_to_subdictionary(primarycrossdicttag, tag_gal, primary_gal_A)
@@ -202,10 +207,11 @@ for fgnamefile in fgnamefiles:
             el, secondary_A_B = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
             secondary_A_B *= 2
 
-            dictionary.add_to_subdictionary(trispectrumdicttag, f'T-{estA}-{estB}', trispectrum_A_B)
-            dictionary.add_to_subdictionary(primarydicttag, f'P-{estA}-{estB}', primary_A_B)
-            dictionary.add_to_subdictionary(secondarydicttag, f'S-{estA}-{estB}', secondary_A_B)
-      
+            dictionary.add_to_subdictionary(trispectrumdicttag, f'{trispectrumdicttag}-{estA}-{estB}', trispectrum_A_B)
+            dictionary.add_to_subdictionary(primarydicttag, f'{primarydicttag}-{estA}-{estB}', primary_A_B)
+            dictionary.add_to_subdictionary(secondarydicttag, f'{secondarydicttag}-{estA}-{estB}', secondary_A_B)
+
+        dictionary.add('gg', clgg)      
         dictionary.add('kk', clkk)
         dictionary.add('kg', clkg)
         dictionary.add('ells', el)
