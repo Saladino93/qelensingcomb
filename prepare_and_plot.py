@@ -107,7 +107,7 @@ for fgnamefile in fgnamefiles:
 
         theta = u.getcovarianceauto(noises, kk, fsky = 1.0)
         thetacross = u.getcovariancecross(noises, kk, kg, gg)
-
+        
         theta = np.save(P/getoutname('theta'), theta)
         thetacross = np.save(P/getoutname('thetacross'), thetacross)
 

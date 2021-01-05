@@ -268,3 +268,9 @@ class Res():
         self.ells = ells
     def set_weights(self, ws):
         self.ws = None
+    def save_x(self, path, name, xname = 'x_'):
+        np.savetxt(path/xname+name+'.txt', self.x)
+    def save_weights(self, path, name, wname = 'w_'):
+        np.savetxt(path/wname+name+'.txt', np.c_[[self.ells]+list(self.ws)])
+    def plot(self, path, name):
+        return 0

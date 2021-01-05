@@ -39,6 +39,8 @@ fgnamefiles = data['fgnamefiles']
 
 estimators_dictionary = data['estimators']
 estimators = list(estimators_dictionary.keys())
+
+
 #CHOOSE nu
 nu = estimators_dictionary[estimators[0]]['nu']
 del estimators_dictionary
@@ -55,6 +57,9 @@ optversion = data['optversion']
 
 for fgnamefile in fgnamefiles:
     for i in range(1):
+   
+        fb = 1.
+
         getoutname = lambda key: f'{key}.npy'
         noises = np.load(P/getoutname(noisetag))
         biases = np.load(P/getoutname('totalbias'))
@@ -67,9 +72,10 @@ for fgnamefile in fgnamefiles:
 
         Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises)
         
-        Optimizerkk.optimize(optversion, method = 'diff-ev', gtol = 100, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False)
+        Optimizerkk.optimize(optversion, method = 'diff-ev', gtol = 1000, bounds = [0., 1.], noisebiasconstr = False, fb = fb, inv_variance = True)
 
-        Op
+        Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biases, noises)
+        Optimizerkg.optimize(optversion, method = 'diff-ev', gtol = 1000, bounds = [0., 1.], noisebiasconstr = False, fb = fb, inv_variance = True)
 
 
 

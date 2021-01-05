@@ -15,6 +15,8 @@ import pickle
 
 import re
 
+import pathlib
+
 '''
 Summary of useful stuff here:
 
@@ -160,7 +162,7 @@ def get_array_from_dict(element):
         lista += re.split('-', string)
         
     estimators = list(set(lista))
-    
+     
     if len(estimators) == len(lista):
         formato = lambda estA: f'{uppercase}-{estA}'
         result = tfm_dict_to_array(estimators, element, formato)
@@ -564,8 +566,10 @@ class write_read():
 
 
 class dictionary():
-    def __init__(self, directory):
-        self.directory = directory
+    def __init__(self, directory, subdirectory = ''):
+        self.directory = pathlib.Path(directory)/subdirectory
+        if not self.directory.exists():
+            self.directory.mkdir(parents = True, exist_ok = True)
         self.dictionary = {}
     
     def create_subdictionary(self, tag):
@@ -583,12 +587,12 @@ class dictionary():
     def add(self, tag, element):
         self.dictionary[tag] = element
     def save(self, name):
-        data_file = open(self.directory+name+'.pkl','wb')
+        data_file = open(self.directory/name+'.pkl','wb')
         pickle.dump(self.dictionary, data_file)
         data_file.close()
 
     def read(self, name):
-        data_file = open(self.directory+name+'.pkl','rb')
+        data_file = open(self.directory/name+'.pkl','rb')
         output = pickle.load(data_file)
         data_file.close()
         self.dictionary = output
