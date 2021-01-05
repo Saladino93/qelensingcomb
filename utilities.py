@@ -587,12 +587,14 @@ class dictionary():
     def add(self, tag, element):
         self.dictionary[tag] = element
     def save(self, name):
-        data_file = open(self.directory/name+'.pkl','wb')
+        name = name+'.pkl'
+        data_file = open(self.directory/name,'wb')
         pickle.dump(self.dictionary, data_file)
         data_file.close()
 
     def read(self, name):
-        data_file = open(self.directory/name+'.pkl','rb')
+        name = name+'.pkl'
+        data_file = open(self.directory/name,'rb')
         output = pickle.load(data_file)
         data_file.close()
         self.dictionary = output

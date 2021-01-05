@@ -99,6 +99,13 @@ iMin = rank_ass*delta+start
 iMax = int(iMax)
 iMin = int(iMin)
 
+number_of_groups = size/Nsims
+number_of_configs_per_group = int(len(lmaxes_configs)/number_of_groups)
+k = int(rank/Nsims)
+index = k*number_of_configs_per_group
+index_plus = (k+1)*number_of_configs_per_group
+lmaxes_configs = lmaxes_configs[index:index_plus]
+
 #Prepare for shape, wcs
 
 #Biases calculation

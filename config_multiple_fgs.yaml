@@ -24,7 +24,7 @@ lmax_sel: 1200
 
 Nsims: 80
 
-fgnamefiles: ['tsz']
+fgnamefiles: ['cib', 'total', 'radiops']
 
 
 
