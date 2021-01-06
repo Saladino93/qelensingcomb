@@ -153,16 +153,18 @@ def tfm_dict_to_array(estimators, dictionary, formato):
     
     return Q_i
     
-def get_array_from_dict(element):
+def get_array_from_dict(element, estimators_list = None):
     lista = []
     
     for name in element.keys():
         uppercase = re.sub('[^A-Z]', '', name)
         string = re.sub(r'[A-Z]+-', '', name)
         lista += re.split('-', string)
+    if estimators_list is not None:
+        estimators = estimators_list
+    else:
+        estimators = list(set(lista))
         
-    estimators = list(set(lista))
-     
     if len(estimators) == len(lista):
         formato = lambda estA: f'{uppercase}-{estA}'
         result = tfm_dict_to_array(estimators, element, formato)
@@ -173,10 +175,10 @@ def get_array_from_dict(element):
     return result
 
 
-def get_element(element):
+def get_element(element, estimators_list = None):
     #If you have a dictionary
     if isinstance(element, dict):  
-        result = get_array_from_dict(element)
+        result = get_array_from_dict(element, estimators_list)
     #If you do not have a dictionary
     else:
         result = element

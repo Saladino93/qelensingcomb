@@ -3,7 +3,7 @@ savingdirectory: 'output_biases/'
 
 analysisdirectory: 'output/'
 plotsdirectory: 'plots/'
-
+resultsdirectory: 'results/'
 #ells, ctt, ctt_lensed, detectnoise, fftot, fg, ftSZ
 spectra_path: '../extract_sehgal/LensQuEst-1/spectra_lensqest_un_len_detectnoise_fftot_fg_ftSZ.txt'
 
@@ -24,7 +24,7 @@ lmax_sel: 1200
 
 Nsims: 80
 
-fgnamefiles: ['cib', 'total', 'radiops']
+fgnamefiles: ['ksz', 'radiops']
 
 
 

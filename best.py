@@ -9,6 +9,7 @@ from mystic.monitors import VerboseMonitor
 from mystic.penalty import linear_equality, quadratic_equality
 from mystic.constraints import as_constraint
 
+import pathlib
 
 class Opt():
     def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises):
@@ -267,10 +268,35 @@ class Res():
         self.x = risultato
         self.ells = ells
     def set_weights(self, ws):
-        self.ws = None
+        self.ws = ws
     def save_x(self, path, name, xname = 'x_'):
-        np.savetxt(path/xname+name+'.txt', self.x)
+        nome = xname+name+'.txt'
+        np.savetxt(path/nome, self.x)
     def save_weights(self, path, name, wname = 'w_'):
-        np.savetxt(path/wname+name+'.txt', np.c_[[self.ells]+list(self.ws)])
+        nome = wname+name+'.txt'
+        np.savetxt(path/nome, np.c_[[self.ells]+list(self.ws)])
+    def load_x(self, path, name, xname = 'x_'):
+        self.x = np.loadtxt(path/xname/name+'.txt')
+    def load_weights(self, path, name, wname = 'w_'):
+        f = np.loadtxt(path/wname/name+'.txt')
+        self.ells = f[:, 0]
+        self.ws = f[:, 1:]
+    def _create_path(self, path):
+        P = pathlib.Path(path)
+        if not P.exists():
+            P.mkdir(parents = True, exist_ok = True)
+        return P
+    def save_all(self, path, name):
+        P = self._create_path(path)
+        self.save_x(P, name)
+        self.save_weights(path, name)
+    def load_all(self, path, name):
+        P = self._create_path(path)
+        self.load_x(P, name)
+        self.load_weights(path, name)
     def plot(self, path, name):
+        return 0
+
+class ResultsPlotter():
+    def __init__(self):
         return 0
