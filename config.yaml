@@ -24,7 +24,7 @@ lmax_sel: 1200
 
 Nsims: 80
 
-fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops']
+fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops', 'total']
 
 
 
@@ -33,6 +33,7 @@ fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops']
 #then you make sure each sims gets 1
 #you want size to be multiple of 80 and 120
 #e.g. size = 240, 480, 960,...
+##lmax_min, lmax_max, are for the available configs
 estimators:
         hu_ok: 
                 nu: 148

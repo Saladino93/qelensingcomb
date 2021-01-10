@@ -37,6 +37,18 @@ my_parser.add_argument('invvariance',
                        type = int,
                        help = '0 for False, 1 for True')
 
+my_parser.add_argument('h',
+                       metavar='huok',
+                       type = int)
+
+my_parser.add_argument('s',
+                       metavar='shear',
+                       type = int)
+
+my_parser.add_argument('b',
+                       metavar='biashard',
+                       type = int)
+
 
 args = my_parser.parse_args()
 
@@ -45,6 +57,10 @@ fb = args.fb
 gtol = args.gtol
 noisebiasconstr = bool(args.noisebiasconstr)
 invvariance = bool(args.invvariance)
+h = args.h
+s = args.s
+b = args.b
+
 
 if not pathlib.Path(values_file).exists():
     print('The file specified does not exist')
@@ -71,16 +87,11 @@ estimators = list(estimators_dictionary.keys())
 lista_lmaxes = []
 
 names = {}
-
 for e in estimators:
     elemento = estimators_dictionary[e]
     names[e] = elemento['direc_name']
-    lmax_min, lmax_max = elemento['lmax_min'], elemento['lmax_max']
-    num = elemento['number']
-    lista_lmaxes += [np.linspace(lmax_min, lmax_max, num, dtype = int)]
 
-lmaxes_configs = list(itertools.product(*lista_lmaxes))
-
+lmaxes_configs = [(h, s, b)]
 
 #CHOOSE nu
 nu = estimators_dictionary[estimators[0]]['nu']
@@ -115,6 +126,8 @@ for fgnamefile in [fgnamefiles[0]]:
             lmaxes_dict[e] = l
             lmax_directory += f'{names[e]}{l}'
 
+        print('Doing for', lmax_directory)
+ 
         P = PP/lmax_directory
 
         getoutname = lambda key: f'{key}_{nu}.npy'

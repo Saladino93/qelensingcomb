@@ -130,6 +130,21 @@ for fgnamefile in [fgnamefiles[0]]:
         theta = np.load(P/getoutname('theta'))
         thetacross = np.load(P/getoutname('thetacross'))
 
+        theta *= 0
+        thetacopy = theta.copy()
+        num = biases.shape[0]
+        for i in range(num):
+            for j in range(num):
+                if i != j:
+                    biases[i, j] *= 0.
+                    noises[i, j] *= 0.
+                    thetacross[i, j] *= 0.
+                for m in range(num):
+                    for n in range(num):
+                        if (i == j) and (m == n):
+                            theta[i, j, m, n] = thetacopy[i, j, m, n]
+
+
         Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises)        
         result = Optimizerkk.optimize(optversion, method = 'diff-ev', gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance)
 

@@ -70,7 +70,7 @@ class Opt():
             #this is for auto
             bias_part = np.einsum('...i, ...j, ij...->...', a, a, bias)
         else:
-            bias_part = np.einsum('...i, i...->...', a, a, bias)
+            bias_part = np.einsum('...i, i...->...', a, bias)
         return bias_part
 
 
@@ -269,16 +269,29 @@ class Res():
         self.ells = ells
     def set_weights(self, ws):
         self.ws = ws
+
+    def save(self, element, path, name):
+        nome = name
+        P = self._create_path(path)
+        np.save(path/nome, element)
+
+    def load(self, path, name):
+        nome = name+'.npy'
+        P = self._create_path(path)
+        return np.load(path/nome)
+
     def save_x(self, path, name, xname = 'x_'):
-        nome = xname+name+'.txt'
-        np.savetxt(path/nome, self.x)
+        nome = xname+name
+        np.save(path/nome, self.x)
     def save_weights(self, path, name, wname = 'w_'):
-        nome = wname+name+'.txt'
-        np.savetxt(path/nome, np.c_[[self.ells]+list(self.ws)])
+        nome = wname+name
+        np.save(path/nome, np.c_[[self.ells]+list(self.ws)])
     def load_x(self, path, name, xname = 'x_'):
-        self.x = np.loadtxt(path/xname/name+'.txt')
+        nome = name+'.npy'
+        self.x = np.load(path/xname/nome)
     def load_weights(self, path, name, wname = 'w_'):
-        f = np.loadtxt(path/wname/name+'.txt')
+        nome = wname+name+'.npy'
+        f = np.load(path/wname/nome)
         self.ells = f[:, 0]
         self.ws = f[:, 1:]
     def _create_path(self, path):

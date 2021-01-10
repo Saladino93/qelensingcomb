@@ -157,7 +157,10 @@ for lconfig in lmaxes_configs:
         np.save(P/getoutname('totalbias'), totalbias)
 
     totalabsbias = 0. 
-    totalbias = 0. 
+    totalbias = 0.
+    totalbiascross = 0.
+    totalabsbiascross = 0.
+ 
     fgnamefilescopy = fgnamefiles.copy() 
     if 'total' in fgnamefilescopy: 
         fgnamefilescopy.remove('total') 
@@ -165,7 +168,9 @@ for lconfig in lmaxes_configs:
         P = PPP/fgnamefile
         totalabsbias += np.load(P/getoutname('totalabsbias')) 
         totalbias += np.load(P/getoutname('totalbias')) 
-
+        totalbiascross += np.load(P/getoutname(primarycrosstag))
+        totalabsbiascross += abs(np.load(P/getoutname(primarycrosstag)))
+        
     getoutname = lambda key: f'{key}_{nu}.npy'
  
     #SUM OF FOREGROUND BIASES, WHERE BIAS IS THE SUM OF ABS(T)+ABS(P)+ABS(S) 
@@ -173,6 +178,10 @@ for lconfig in lmaxes_configs:
     #SUM OF FOREGROUND BIASES, WHERE BIAS IS THE SUM OF T+P+S 
     np.save(PPP/f'sum_all_totalbias_{nu}.npy', totalbias) 
     
+    np.save(PPP/f'sum_all_crosstotalabsbias_{nu}.npy', totalbiascross)
+    np.save(PPP/f'sum_all_crosstotalbias_{nu}.npy', totalabsbiascross)    
+
+
     np.save(PPP/getoutname('theta'), theta)
     np.save(PPP/getoutname('thetacross'), thetacross)
     np.save(PPP/getoutname('kg'), kg) 
