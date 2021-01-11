@@ -174,12 +174,12 @@ for lconfig in lmaxes_configs:
     getoutname = lambda key: f'{key}_{nu}.npy'
  
     #SUM OF FOREGROUND BIASES, WHERE BIAS IS THE SUM OF ABS(T)+ABS(P)+ABS(S) 
-    np.save(PPP/f'sum_all_totalabsbias_{nu}.npy', totalbias) 
+    np.save(PPP/f'sum_all_totalabsbias_{nu}.npy', totalabsbias) 
     #SUM OF FOREGROUND BIASES, WHERE BIAS IS THE SUM OF T+P+S 
     np.save(PPP/f'sum_all_totalbias_{nu}.npy', totalbias) 
     
-    np.save(PPP/f'sum_all_crosstotalabsbias_{nu}.npy', totalbiascross)
-    np.save(PPP/f'sum_all_crosstotalbias_{nu}.npy', totalabsbiascross)    
+    np.save(PPP/f'sum_all_crosstotalabsbias_{nu}.npy', totalabsbiascross)
+    np.save(PPP/f'sum_all_crosstotalbias_{nu}.npy', totalbiascross)    
 
 
     np.save(PPP/getoutname('theta'), theta)

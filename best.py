@@ -63,7 +63,7 @@ class Opt():
     def get_final_variance_weights(self, x, ells, theory, theta, inv_variance):
         a = self.get_a(x, inv_variance)
         variance = self.get_variance_part(a, theta)
-        return self.get_mv_weights(ells, theory, variance)
+        return self.get_weight_per_l(x, ells, theory, variance, inv_variance)
 
     def get_bias_part(self, a, bias):
         if bias.ndim > 2:
@@ -72,6 +72,12 @@ class Opt():
         else:
             bias_part = np.einsum('...i, i...->...', a, bias)
         return bias_part
+
+    def get_per_l_part(self, a, matrix):
+        if matrix.ndim > 2:
+            #this is for auto
+            part = np.einsum('...i, ...j, ij...->...', a, a, matrix)
+        return part
 
 
     def get_bias_term(self, ells, theory, bias, a, weight_per_l):
@@ -101,7 +107,7 @@ class Opt():
 
             total_result = 0.
 
-            biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)
+            biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)**2.
             squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.) 
 
             total_result = squarednoiseterm+biasterm*fb
@@ -264,9 +270,15 @@ class Opt():
 
  
 class Res():
-    def __init__(self, risultato, ells):
+    def __init__(self, risultato = None, ells = None):
         self.x = risultato
+        self.set_ells(ells)
+    
+    def set_ells(self, ells):
         self.ells = ells
+        if ells is not None:
+            self.nbins = len(ells)
+
     def set_weights(self, ws):
         self.ws = ws
 
@@ -287,13 +299,14 @@ class Res():
         nome = wname+name
         np.save(path/nome, np.c_[[self.ells]+list(self.ws)])
     def load_x(self, path, name, xname = 'x_'):
-        nome = name+'.npy'
-        self.x = np.load(path/xname/nome)
+        nome = xname+name+'.npy'
+        self.x = np.load(path/nome)
     def load_weights(self, path, name, wname = 'w_'):
         nome = wname+name+'.npy'
-        f = np.load(path/wname/nome)
-        self.ells = f[:, 0]
+        f = np.load(path/nome).T
+        self.set_ells(f[:, 0])
         self.ws = f[:, 1:]
+
     def _create_path(self, path):
         P = pathlib.Path(path)
         if not P.exists():
@@ -307,6 +320,7 @@ class Res():
         P = self._create_path(path)
         self.load_x(P, name)
         self.load_weights(path, name)
+        self.wx = self.x[:-self.nbins]
     def plot(self, path, name):
         return 0
 
