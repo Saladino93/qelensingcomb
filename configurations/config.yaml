@@ -27,7 +27,6 @@ Nsims: 80
 fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops', 'total']
 
 
-
 #number of configs is 120
 #if size of srun is size, then size/Nsims number of groups
 #then you make sure each sims gets 1
@@ -68,4 +67,25 @@ primarykey: P
 secondarykey: S
 primarycrosskey: PC
 
+kkkey: 'kk'
+kgkey: 'kg'
+ggkey: 'gg'
+ellskey: 'ells'
+thetakey: 'theta'
+thetacross: 'thetacross'
+
+totalabsbiaskey: 'totalabsbias'
+totalbiaskey: 'totalbias'
+
+sumalltotalabsbiaskey: 'sum_all_totalabsbias'
+sumalltotalbiaskey: 'sum_all_totalbias'
+sumallcrosstotalabsbiaskey: 'sum_all_crosstotalabsbias'
+sumallcrosstotalbiaskey: 'sum_all_crosstotalbias'
+
+optimisation:
+    gtol: 10000
+    fbs: [1., 0.01, 0.03, 0.05, 0.1, 0.5, 2, 5, 10, 100, 0.]
+    inv_variances: [1, 0]
+    noiseequalsbias: [0]
+    bias_source: 'total' # can be total, sum_bias, sum_abs_bias: from bias of sum of fgs at map level, sum bias, sum abs bias
 
