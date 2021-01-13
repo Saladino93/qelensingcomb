@@ -4,7 +4,31 @@ import re
 
 import os
 
-path = pathlib.Path('output/')
+import argparse
+
+import yaml
+
+my_parser = argparse.ArgumentParser(description = 'Configuration file.')
+
+my_parser.add_argument('Configuration',
+                       metavar='configuration file',
+                       type = str,
+                       help = 'the path to configuration file')
+
+args = my_parser.parse_args()
+
+values_file = args.Configuration
+
+if not pathlib.Path(values_file).exists():
+    print('The file specified does not exist')
+    sys.exit()
+
+with open(values_file, 'r') as stream:
+            data = yaml.safe_load(stream)
+
+output = data['analysisdirectory']
+
+path = pathlib.Path(output)
 all_lmaxes_directories =  [x.name for x in path.iterdir() if x.is_dir()]
 
 mock_numb = len(all_lmaxes_directories)
@@ -17,13 +41,16 @@ iMin = 0
 iMax = int(iMax)
 iMin = int(iMin)
 
-fbs = [1]#[0, 0.01, 0.03, 0.05, 0.1, 0.5, 1, 2, 5, 10, 100]
-inv_variances = [0, 1]
-noiseequalsbias = [0]
+optdict = data['optimisation']
+
+gtol = optdict['gtol']
+fbs = optdict['fbs']
+inv_variances = optdict['inv_variances']
+noiseequalsbias = optdict['noiseequalsbias']
 
 for inv_ in inv_variances:
     for neb in noiseequalsbias:
         for fb in fbs:
             for i in range(iMin, iMax):
                 h, s, b = re.findall(r'\d+', all_lmaxes_directories[i])
-                os.system(f'python process_results.py configsumfgs.yaml {fb} {neb} {inv_} {h} {s} {b}')            
+                os.system(f'python process_results.py {values_file} {fb} {neb} {inv_} {h} {s} {b}')            

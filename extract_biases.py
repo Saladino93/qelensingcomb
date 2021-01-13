@@ -71,6 +71,10 @@ primarydicttag = data['primarykey']
 secondarydicttag = data['secondarykey']
 primarycrossdicttag = data['primarycrosskey']
 
+kkkey = data['kkkey']
+kgkey = data['kgkey']
+ggkey = data['ggkey']
+ellskey = data['ellskey']
 
 savingdirectory = data['savingdirectory']
 spectra_path = data['spectra_path']
@@ -244,10 +248,10 @@ for fgnamefile in fgnamefiles:
             #Calculate gg$
             el, clgg = Binner.bin_maps(gal_fft_map, gal_fft_map, pixel_units = True)
 
-            dictionary.add('gg', clgg)
-            dictionary.add('kk', clkk)
-            dictionary.add('kg', clkg)
-            dictionary.add('ells', el)
+            dictionary.add(ggkey, clgg)
+            dictionary.add(kkkey, clkk)
+            dictionary.add(kgkey, clkg)
+            dictionary.add(ellskey, el)
 
             if isinstance(nuA, list):
                 nu = nuA[0]

@@ -1,3 +1,7 @@
+import argparse
+
+import yaml
+
 from mpi4py import MPI
 
 import pathlib
@@ -6,7 +10,27 @@ import re
 
 import os
 
-path = pathlib.Path('output/')
+my_parser = argparse.ArgumentParser(description = 'Configuration file.')
+
+my_parser.add_argument('Configuration',
+                       metavar='configuration file',
+                       type = str,
+                       help = 'the path to configuration file')
+
+args = my_parser.parse_args()
+
+values_file = args.Configuration
+
+if not pathlib.Path(values_file).exists():
+    print('The file specified does not exist')
+    sys.exit()
+
+with open(values_file, 'r') as stream:
+            data = yaml.safe_load(stream)
+
+output = data['analysisdirectory']
+
+path = pathlib.Path(output)
 all_lmaxes_directories =  [x.name for x in path.iterdir() if x.is_dir()]
 
 comm = MPI.COMM_WORLD
@@ -24,18 +48,18 @@ iMin = rank*delta+start
 iMax = int(iMax)
 iMin = int(iMin)
 
-gtol = 10000
-fbs = [0.01, 0.03, 0.05, 0.1, 0.5, 2, 5, 10, 100, 0.]
-inv_variances = [1]
-noiseequalsbias = [0]
+optdict = data['optimisation']
 
-#TODO
-#Put list of fbs, invvar, gtol, noiseeqb, in config
-#take config as input with argparser
+gtol = optdict['gtol']
+fbs = optdict['fbs']
+inv_variances = optdict['inv_variances']
+noiseequalsbias = optdict['noiseequalsbias']
+
+
 
 for inv_ in inv_variances:
     for neb in noiseequalsbias:
         for fb in fbs:
             for i in range(iMin, iMax):
                 h, s, b = re.findall(r'\d+', all_lmaxes_directories[i])
-                os.system(f'python lmax_optimize.py configsumfgs.yaml {fb} {gtol} {neb} {inv_} {h} {s} {b}')            
+                os.system(f'python lmax_optimize.py {values_file} {fb} {gtol} {neb} {inv_} {h} {s} {b}')            

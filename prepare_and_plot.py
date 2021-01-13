@@ -80,6 +80,21 @@ primarycrosstag = data['primarycrosskey']
 
 biasestags = [trispectrumtag, primarytag, secondarytag]
 
+totalabsbiaskey = data['totalabsbiaskey']
+totalbiaskey = data['totalbiaskey']
+sumalltotalabsbiaskey = data['sumalltotalabsbiaskey']
+sumalltotalbiaskey = data['sumalltotalbiaskey']
+sumallcrosstotalabsbiaskey = data['sumallcrosstotalabsbiaskey']
+sumallcrosstotalbiaskey = data['sumallcrosstotalbiaskey']
+
+kkkey = data['kkkey']
+kgkey = data['kgkey']
+ggkey = data['ggkey']
+ellskey = data['ellskey']
+thetakey = data['thetakey']
+thetacrosskey = data['thetacrosskey']
+
+
 #NOTE
 function = lambda x: abs(x)
 
@@ -126,7 +141,7 @@ for lconfig in lmaxes_configs:
             getoutname = lambda key: f'{key}_{fgnamefile}_{nu}.npy'
             np.save(P/getoutname(k), mean)
         
-            els = ['ells']
+            els = [ellskey]
             if not k in els:
                 outname = f'scatter_{k}_{fgnamefile}_{nu}.npy'
                 #NOTE, correction for the old Manus and Simos sims
@@ -135,26 +150,26 @@ for lconfig in lmaxes_configs:
                 np.save(P/outname, scatter*factor)
 
         noises = np.load(P/getoutname(noisetag))
-        kg = np.load(P/getoutname('kg'))
-        kk = np.load(P/getoutname('kk'))
-        gg = np.load(P/getoutname('gg'))
-        ells = np.load(P/getoutname('ells'))
+        kg = np.load(P/getoutname(kgkey))
+        kk = np.load(P/getoutname(kkkey))
+        gg = np.load(P/getoutname(ggkey))
+        ells = np.load(P/getoutname(ellskey))
 
         theta = u.getcovarianceauto(noises, kk, fsky = 1.0)
         thetacross = u.getcovariancecross(noises, kk, kg, gg)
         
-        np.save(P/getoutname('theta'), theta)
-        np.save(P/getoutname('thetacross'), thetacross)
+        np.save(P/getoutname(thetakey), theta)
+        np.save(P/getoutname(thetacrosskey), thetacross)
 
         totalbias = 0.
         for tag in biasestags:
             totalbias += function(np.load(P/getoutname(tag)))
-        np.save(P/getoutname('totalabsbias'), totalbias)
+        np.save(P/getoutname(totalabsbiaskey), totalbias)
 
         totalbias = 0.
         for tag in biasestags:
             totalbias += np.load(P/getoutname(tag))
-        np.save(P/getoutname('totalbias'), totalbias)
+        np.save(P/getoutname(totalbiaskey), totalbias)
 
     totalabsbias = 0. 
     totalbias = 0.
@@ -166,31 +181,35 @@ for lconfig in lmaxes_configs:
         fgnamefilescopy.remove('total') 
     for fgnamefile in fgnamefilescopy:
         P = PPP/fgnamefile
-        totalabsbias += np.load(P/getoutname('totalabsbias')) 
-        totalbias += np.load(P/getoutname('totalbias')) 
+        totalabsbias += np.load(P/getoutname(totalabsbiaskey)) 
+        totalbias += np.load(P/getoutname(totalbiaskey)) 
         totalbiascross += np.load(P/getoutname(primarycrosstag))
         totalabsbiascross += abs(np.load(P/getoutname(primarycrosstag)))
         
     getoutname = lambda key: f'{key}_{nu}.npy'
  
+    nome = sumalltotalabsbiaskey+f'_{nu}.npy'
     #SUM OF FOREGROUND BIASES, WHERE BIAS IS THE SUM OF ABS(T)+ABS(P)+ABS(S) 
-    np.save(PPP/f'sum_all_totalabsbias_{nu}.npy', totalabsbias) 
+    np.save(PPP/nome, totalabsbias) 
+
+    nome = sumalltotalbiaskey+f'_{nu}.npy'
     #SUM OF FOREGROUND BIASES, WHERE BIAS IS THE SUM OF T+P+S 
-    np.save(PPP/f'sum_all_totalbias_{nu}.npy', totalbias) 
+    np.save(PPP/nome, totalbias) 
     
-    np.save(PPP/f'sum_all_crosstotalabsbias_{nu}.npy', totalabsbiascross)
-    np.save(PPP/f'sum_all_crosstotalbias_{nu}.npy', totalbiascross)    
+    nome = sumallcrosstotalabsbiaskey+f'_{nu}.npy'    
+    np.save(PPP/nome, totalabsbiascross)
+    nome = sumallcrosstotalbiaskey+f'_{nu}.npy'
+    np.save(PPP/nome, totalbiascross)    
 
 
-    np.save(PPP/getoutname('theta'), theta)
-    np.save(PPP/getoutname('thetacross'), thetacross)
-    np.save(PPP/getoutname('kg'), kg) 
-    np.save(PPP/getoutname('kk'), kk)
-    np.save(PPP/getoutname('gg'), gg)
+    np.save(PPP/getoutname(thetakey), theta)
+    np.save(PPP/getoutname(thetacrosskey), thetacross)
+    np.save(PPP/getoutname(kgkey), kg) 
+    np.save(PPP/getoutname(kkkey), kk)
+    np.save(PPP/getoutname(ggkey), gg)
     np.save(PPP/getoutname(noisetag), noises)    
-    np.save(PPP/getoutname('ells'), ells)
+    np.save(PPP/getoutname(ellskey), ells)
 
 print(f'Total number of direcs ', ndirs)
 
-     
-Plotting = u.Plotting('Biases', lminplot = 30, lmaxplot = 2000, xscale = 'log')
+    

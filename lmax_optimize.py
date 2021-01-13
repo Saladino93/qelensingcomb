@@ -103,6 +103,21 @@ primarytag = data['primarykey']
 secondarytag = data['secondarykey']
 primarycrosstag = data['primarycrosskey']
 
+kkkey = data['kkkey']
+kgkey = data['kgkey']
+ggkey = data['ggkey']
+ellskey = data['ellskey']
+thetakey = data['thetakey']
+thetacrosskey = data['thetacrosskey']
+
+totalabsbiaskey = data['totalabsbiaskey']
+totalbiaskey = data['totalbiaskey']
+sumalltotalabsbiaskey = data['sumalltotalabsbiaskey']
+sumalltotalbiaskey = data['sumalltotalbiaskey']
+sumallcrosstotalabsbiaskey = data['sumallcrosstotalabsbiaskey']
+sumallcrosstotalbiaskey = data['sumallcrosstotalbiaskey']
+
+
 lmin_sel, lmax_sel = data['lmin_sel'], data['lmax_sel']
 
 optversion = data['optversion']
@@ -135,15 +150,23 @@ for fgnamefile in [fgnamefiles[0]]:
 
         getoutname2 = lambda key: f'{key}_total_{nu}.npy'
 
-        biases = np.load(P/'total'/getoutname2('totalbias')) #getoutname('sum_all_totalbias'))
-        biasescross = np.load(P/'total'/getoutname2('PC')) #/getoutname('sum_all_crosstotalbias'))
+        if bias_source == 'total':
+            biases = np.load(P/'total'/getoutname2(totalbiaskey)) #getoutname('sum_all_totalbias'))
+            biasescross = np.load(P/'total'/getoutname2(primarycrosskey)) #/getoutname('sum_all_crosstotalbias'))
+        elif bias_source == 'sum_bias':
+            biases = np.load(P/getoutname(totalbiaskey))
+            biasescross = np.load(P/getoutname(sum_all_crosstotalbias))
+        elif bias_source == 'sum_abs_bias':
+            biases = np.load(P/getoutname(sumalltotalabsbiaskey))
+            biasescross = np.load(P/getoutname(sumallcrosstotalabsbiaskey))
+          
 
-        kg = np.load(P/getoutname('kg'))
-        kk = np.load(P/getoutname('kk'))
-        gg = np.load(P/getoutname('gg'))
-        ells = np.load(P/getoutname('ells'))
-        theta = np.load(P/getoutname('theta'))
-        thetacross = np.load(P/getoutname('thetacross'))
+        kg = np.load(P/getoutname(kgkey))
+        kk = np.load(P/getoutname(kkkey))
+        gg = np.load(P/getoutname(ggkey))
+        ells = np.load(P/getoutname(ellskey))
+        theta = np.load(P/getoutname(thetakey))
+        thetacross = np.load(P/getoutname(thetacrosskey))
 
         Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises)        
         result = Optimizerkk.optimize(optversion, method = 'diff-ev', gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance)
