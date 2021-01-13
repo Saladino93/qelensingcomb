@@ -17,7 +17,7 @@ iMin = 0
 iMax = int(iMax)
 iMin = int(iMin)
 
-fbs = [0, 1]#[0, 0.01, 0.03, 0.05, 0.1, 0.5, 1, 2, 5, 10, 100]
+fbs = [1]#[0, 0.01, 0.03, 0.05, 0.1, 0.5, 1, 2, 5, 10, 100]
 inv_variances = [0, 1]
 noiseequalsbias = [0]
 
@@ -26,4 +26,4 @@ for inv_ in inv_variances:
         for fb in fbs:
             for i in range(iMin, iMax):
                 h, s, b = re.findall(r'\d+', all_lmaxes_directories[i])
-                os.system(f'python process_results.py config.yaml {fb} {neb} {inv_} {h} {s} {b}')            
+                os.system(f'python process_results.py configsumfgs.yaml {fb} {neb} {inv_} {h} {s} {b}')            

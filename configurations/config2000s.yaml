@@ -1,0 +1,71 @@
+sims_directory: '../extract_sehgal/manusmaps/flat_maps_large/latestmaps13092020/'
+savingdirectory: 'output_biases/'
+
+analysisdirectory: 'output/'
+plotsdirectory: 'plots/'
+resultsdirectory: 'results_stability/'
+#ells, ctt, ctt_lensed, detectnoise, fftot, fg, ftSZ
+spectra_path: '../extract_sehgal/LensQuEst-1/spectra_lensqest_un_len_detectnoise_fftot_fg_ftSZ.txt'
+
+
+optversion: {'weights_name': 'absbias', 'sum_biases_squared': False, 'abs_biases': True, 'bias_squared': False,
+                      'color': 'purple', 'latexformula': '\sigma^2(\hat{A}_{\rm{comb}})+\left(\int_{\vec{L}}\vec{a}^TB\vec{a}\right)^2'}
+
+
+Lmin: 20
+Lmax: 6000
+
+logmode: True
+nlogBins: 15
+deltalplot: 100
+
+lmin_sel: 30
+lmax_sel: 1200
+
+Nsims: 80
+
+fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops', 'total']
+
+
+
+#number of configs is 120
+#if size of srun is size, then size/Nsims number of groups
+#then you make sure each sims gets 1
+#you want size to be multiple of 80 and 120
+#e.g. size = 240, 480, 960,...
+##lmax_min, lmax_max, are for the available configs
+estimators:
+        hu_ok: 
+                nu: 148
+                hardening: ''
+                lmax_min: 2000
+                lmax_max: 2500
+                number: 2
+                direc_name: h
+                color: blue
+                label: QE 
+        shear:
+                nu: 148
+                hardening: ''
+                lmax_min: 2000
+                lmax_max: 2500
+                number: 2
+                direc_name: s
+                color: red
+                label: Shear
+        bh:
+                nu: 148
+                hardening: src
+                lmax_min: 2000
+                lmax_max: 2500
+                number: 2
+                direc_name: b
+                color: green
+                label: BH
+noisekey: N
+trispectrumkey: T
+primarykey: P
+secondarykey: S
+primarycrosskey: PC
+
+

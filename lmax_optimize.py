@@ -133,8 +133,10 @@ for fgnamefile in [fgnamefiles[0]]:
         getoutname = lambda key: f'{key}_{nu}.npy'
         noises = np.load(P/getoutname(noisetag))
 
-        biases = np.load(P/getoutname('sum_all_totalabsbias'))
-        biasescross = np.load(P/getoutname('sum_all_crosstotalabsbias'))
+        getoutname2 = lambda key: f'{key}_total_{nu}.npy'
+
+        biases = np.load(P/'total'/getoutname2('totalbias')) #getoutname('sum_all_totalbias'))
+        biasescross = np.load(P/'total'/getoutname2('PC')) #/getoutname('sum_all_crosstotalbias'))
 
         kg = np.load(P/getoutname('kg'))
         kk = np.load(P/getoutname('kk'))

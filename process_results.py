@@ -73,6 +73,8 @@ analysis_directory = data['analysisdirectory']
 
 results_directory = data['resultsdirectory']
 
+print('Results directory', results_directory)
+
 PP = pathlib.Path(analysis_directory)
 Pplots = pathlib.Path(plots_directory)
 
@@ -139,6 +141,9 @@ def get_dict_results(fgnamefile, lmax_directory, fb):
     getoutname = lambda key: f'{key}_{nu}.npy'
     noises = np.load(P/getoutname(noisetag))
 
+
+    #NOTE
+    #JUST TEMP
     biases = np.load(P/getoutname('sum_all_totalabsbias'))
     biasescross = np.load(P/getoutname('sum_all_crosstotalabsbias'))
 
@@ -150,9 +155,13 @@ def get_dict_results(fgnamefile, lmax_directory, fb):
     thetacross = np.load(P/getoutname('thetacross'))
 
     Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises)
+    Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biasescross, noises)
+
     resultkk = best.Res()
     resultkk.load_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}')
     biases = resultkk.load(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases')
+
+    Optimizerkk.biases_selected = biases
 
     directory_of_saving = pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir
     dic = u.dictionary(directory_of_saving)
@@ -174,7 +183,26 @@ def get_dict_results(fgnamefile, lmax_directory, fb):
     dic.add_to_subdictionary(autotag, 'noise', n(resultkk.x))
     dic.add_to_subdictionary(autotag, 'bias', b(resultkk.x))
     dic.add_to_subdictionary(autotag, 'total', f(resultkk.x))
-
+    '''
+    xx = resultkk.x
+    t0 = f(xx)
+    print('total at opt min', t0)
+    aa = xx[-8-1:-8]
+    bb = xx[-8-2:-8-1]
+    pr = 0.1
+    xx[-8-1:-8] = aa*(1+pr)
+    xx[-8-2:-8-1] = bb-aa*pr
+    print(np.sum(xx[-8-3:-8]))
+    t1 = f(xx)
+    diff = lambda x: abs(t0-t1)/t0
+    print(f'rel diff total modifying last bin, {pr*100} percent', diff(t1))
+    pr = 4
+    xx[-8-1:-8] = aa*(1+0.5)
+    xx[-8-2:-8-1] = bb-aa*0.5
+    print(f'rel diff total modifying last bin, {pr*100} percent', diff(f(xx)))
+    #xx[:-8-2] *= (1+0.1)
+    #xx[:-8-3] *= (1+0.1)
+    '''
     dic.add_to_subdictionary(autotag, 'noisehuok', ninv(xhuok))
     dic.add_to_subdictionary(autotag, 'biashuok', binv(xhuok))
 
@@ -196,10 +224,11 @@ def get_dict_results(fgnamefile, lmax_directory, fb):
     dic.add('ells', resultkk.ells)
        
 
-    Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biasescross, noises)
     resultkg = best.Res()
     resultkg.load_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'cross_fb_{fb}')
-    biases_cross = resultkk.load(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'cross_biases')
+    biasescross = resultkk.load(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'cross_biases')
+
+    Optimizerkg.biases_selected = biasescross
 
     f, n, b = fnb_getter(Optimizerkg, fb, invvariance)
     finv, ninv, binv = fnb_getter(Optimizerkg, fb_val = 0, invvar = True)   
