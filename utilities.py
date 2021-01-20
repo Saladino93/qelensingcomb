@@ -219,25 +219,16 @@ class Estimator(object):
                                              Lmin = Lmin, Lmax = Lmax, Lx = None, Ly = None)
 
         self.fdict = feed_dict
-        
-        if hardening is not None:
-            f_phi, F_phi, Fr_phi = self.get_mc_expressions('hu_ok', field_names = field_names)
-            f_bias, F_bias, _ = self.get_mc_expressions(hardening, field_names = field_names)
-            f_bh, F_bh, Fr_bh = self.get_mc_expressions(f'{hardening}-hardened', estimator_to_harden = 'hu_ok', field_names = field_names)
-            # 1 / Response of the biasing agent to the biasing agent
-            self.fdict[f'A{hardening}_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_bias,
-                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-            # 1 / Response of the biasing agent to CMB lensing
-            self.fdict[f'Aphi_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_bias,
-                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+            
+        f, F, Fr = self.get_mc_expressions(estimator, XY = 'TT', field_names = field_names, estimator_to_harden = 'hu_ok', 
+                           hardening = hardening, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
 
-            f, F, Fr = f_bh, F_bh, Fr_bh
+        if estimator == 'symm':
+            self.Al = xmask*0.+1.
         else:
-            f_phi, F_phi, Fr_phi = self.get_mc_expressions(estimator, field_names = field_names)
-            f, F, Fr = f_phi, F_phi, Fr_phi
-
-        self.Al = self.A_l_custom(shape, wcs, feed_dict, f, F, 
+            self.Al = self.A_l_custom(shape, wcs, feed_dict, f, F, 
                                   xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+        
         self.F = F
         self.f = f
         self.Fr = Fr
@@ -264,41 +255,94 @@ class Estimator(object):
     def get_mask(self, shape, wcs, lmin, lmax, lx, ly):
         return symlens.mask_kspace(shape, wcs, lxcut = lx, lycut = ly, lmin = lmin, lmax = lmax)
 
-    def get_Nl(self):
-        return self.N_l_cross_custom(self.shape, self.wcs, self.fdict, self.XY, self.XY, self.F, self.F, self.F,
-                                     xmask = self.xmask, ymask = self.ymask,
-                                     Aalpha = self.Al, Abeta = self.Al, groups = None, kmask = self.kmask)
-
     def A_l_custom(self, shape, wcs, feed_dict, f, F, xmask, ymask, 
                    groups = None,kmask = None):
         return symlens.A_l_custom(shape, wcs, feed_dict, f, F, 
-                                  xmask = xmask, ymask = ymask, groups = None,kmask = kmask)
+                                  xmask = xmask, ymask = ymask, groups = None,kmask = kmask) 
     
-    
-    def reconstruct(self, map1, map2):
+    def reconstruct_other(self, map1, map2, field_names = None, estimator = None, F = None):
         feed_dict = self.fdict.copy()
          
-        name1 = self.field_names[0]
-        name2 = self.field_names[1]
+        if field_names is None:
+            field_names = self.field_names
+            
+        name1 = field_names[0]
+        name2 = field_names[1]
 
         feed_dict[name1] = map1
         feed_dict[name2] = map2
 
         xname1, xname2 = name1+'_l1', name2+'_l2'
-        groups = self._get_groups(self.estimator, noise = False)
-        return self._reconstruct(feed_dict, xname = xname1, yname = xname2)
+        groups = self._get_groups(self.estimator if estimator is None else estimator, noise = False)
+        return self._reconstruct(feed_dict, xname = xname1, yname = xname2, F = F)
+    
+    
+    def reconstruct_symm(self, map1, map2):
+        recAB = self.reconstruct_other(map1, map2, self.field_names, estimator = 'hdv', F = self.F_phiA)
+        reversed_field_names = self.field_names.copy()
+        reversed_field_names.reverse()
+        recBA = self.reconstruct_other(map2, map1, reversed_field_names, estimator = 'hdv', F = self.F_phiB)
+        return self.fdict['wA']*recAB+self.fdict['wB']*recBA
+    
+    
+    def reconstruct(self, map1, map2):
+        
+        if self.estimator == 'symm':
+            mappa = self.reconstruct_symm(map1, map2)
+        else:
+            mappa = self.reconstruct_other(map1, map2)
+        return mappa
         
 
 
-    def _reconstruct(self,feed_dict,xname='X_l1',yname='Y_l2',groups=None,physical_units=True):
+    def _reconstruct(self,feed_dict,xname ='X_l1',yname = 'Y_l2', groups = None, physical_units = True, F = None):
         uqe = symlens.unnormalized_quadratic_estimator_custom(self.shape,self.wcs,feed_dict,
-                                                      self.F,xname=xname,yname=yname,
-                                                      xmask=self.xmask,ymask=self.ymask,
-                                                      groups=groups,physical_units=physical_units)
+                                                      self.F if F is None else F,xname = xname,yname = yname,
+                                                      xmask = self.xmask,ymask = self.ymask,
+                                                      groups = groups,physical_units = physical_units)
         return self.Al * uqe * self.kmask
 
     def get_Nl_cross(self, Estimator2, tipo = 't'):
         feed_dict = {**self.fdict, **Estimator2.fdict}
+        
+        if (self.estimator == 'symm') and (Estimator2.estimator == 'symm'):
+            N_l_cross_i_j = self.Ncoadd
+        
+        elif (self.estimator == 'symm' and Estimator2.estimator != 'symm'):
+            N_l_cross_i_j = self.get_Nl_cross_symm_with_asymm(feed_dict, self, Estimator2, tipo)   
+        
+        elif (self.estimator != 'symm' and Estimator2.estimator == 'symm'):
+            N_l_cross_i_j = self.get_Nl_cross_symm_with_asymm(feed_dict, Estimator2, self, tipo)
+            
+        else:
+            N_l_cross_i_j= self.get_Nl_cross_other(feed_dict, Estimator2, tipo = tipo)
+            
+    
+        return N_l_cross_i_j
+    
+    
+    def get_Nl_cross_symm_with_asymm(self, feed_dict, EstimatorSymm, EstimatorStd, tipo = 't'):
+        
+        NLA = self.N_l_cross_custom(EstimatorSymm.shape, EstimatorSymm.wcs, feed_dict, EstimatorSymm.XY, EstimatorStd.XY, EstimatorSymm.F_phiA, EstimatorStd.F, EstimatorStd.Fr,
+                                                xmask = EstimatorSymm.xmask*EstimatorStd.xmask, ymask = EstimatorSymm.ymask*EstimatorStd.ymask,
+                                                field_names_alpha = EstimatorSymm.field_names, field_names_beta = EstimatorStd.field_names,
+                                                falpha = EstimatorSymm.f_phiA, fbeta = EstimatorStd.f, Aalpha = EstimatorSymm.Al, Abeta = EstimatorStd.Al,
+                                                groups = self._get_groups('hdv', EstimatorStd.estimator), kmask = EstimatorSymm.kmask*EstimatorStd.kmask,
+                                                power_name = tipo)   
+
+        NLB = self.N_l_cross_custom(EstimatorSymm.shape, EstimatorSymm.wcs, feed_dict, EstimatorSymm.XY, EstimatorStd.XY, EstimatorSymm.F_phiB, EstimatorStd.F, EstimatorStd.Fr,
+                                                xmask = EstimatorSymm.xmask*EstimatorStd.xmask, ymask = EstimatorSymm.ymask*EstimatorStd.ymask,
+                                                field_names_alpha = EstimatorSymm.field_names_r, field_names_beta = EstimatorStd.field_names,
+                                                falpha = EstimatorSymm.f_phiB, fbeta = EstimatorStd.f, Aalpha = EstimatorSymm.Al, Abeta = EstimatorStd.Al,
+                                                groups = self._get_groups('hdv', EstimatorStd.estimator), kmask = EstimatorSymm.kmask*EstimatorStd.kmask,
+                                                power_name = tipo)
+        
+        result = NLA*EstimatorSymm.fdict['wA']+NLB*EstimatorSymm.fdict['wB']
+            
+        return result
+    
+    def get_Nl_cross_other(self, feed_dict, Estimator2, tipo = 't'):
+        
         N_l_cross_i_j = self.N_l_cross_custom(self.shape, self.wcs, feed_dict, self.XY, Estimator2.XY, self.F, Estimator2.F, Estimator2.Fr,
                                                     xmask = self.xmask*Estimator2.xmask, ymask = self.ymask*Estimator2.ymask,
                                                     field_names_alpha = self.field_names, field_names_beta = Estimator2.field_names,
@@ -327,29 +371,114 @@ class Estimator(object):
             Estimator2 = Estimator1
         return qe._get_groups(Estimator1, Estimator2, noise = noise)
     
-    def get_mc_expressions(self, estimator, XY = 'TT', field_names = None, estimator_to_harden = 'hu_ok'):
-        return symlens.get_mc_expressions(estimator, XY, field_names, estimator_to_harden)
-
-
-class mapNamesObj():
-    def __init__(self, nu):
-        self.psmask = lambda x: 'ps_mask_5mJy_T_patch' 
-        self.cmb0template = lambda x: 'cmb0'   
-        self.cmb1template = lambda x: 'cmb1'
-        self.fgtemplate =  lambda x: f'sehgal_{x}_{nu}_large_cutout'
-        self.fggausstemplate = lambda x: f'gaussian_sehgal_{x}_{nu}_large_cutout'
-        self.kappatemplate = lambda x: 'sehgal_kcmb_large_cutout'
-        self.galtemplate = lambda x: f'sehgal_lsstgold_large_cutout'
-        self.nu = nu
+    def get_mc_expressions(self, estimator, XY = 'TT', field_names = None, estimator_to_harden = 'hu_ok', 
+                           hardening = None, feed_dict = None, shape = None, wcs = None, xmask = None, ymask = None, kmask= None):
         
-#########################################
+        if hardening is not None:
+            f_phi, F_phi, Fr_phi = self.get_mc_expressions('hu_ok', field_names = field_names)
+            f_bias, F_bias, _ = self.get_mc_expressions(hardening, field_names = field_names)
+            f_bh, F_bh, Fr_bh = self.get_mc_expressions(f'{hardening}-hardened', estimator_to_harden = 'hu_ok', field_names = field_names)
+            # 1 / Response of the biasing agent to the biasing agent
+            self.fdict[f'A{hardening}_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_bias,
+                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+            # 1 / Response of the biasing agent to CMB lensing
+            self.fdict[f'Aphi_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_bias,
+                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
 
-def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
+            f, F, Fr = f_bh, F_bh, Fr_bh
+            
+        elif estimator == 'symm':
+            
+            f_phiA, F_phiA, Fr_phiA = self.get_mc_expressions('hdv', field_names = field_names)
+            
+            field_names_r = field_names.copy()
+            field_names_r.reverse()
+            
+            self.field_names_r = field_names_r
+            
+            f_phiB, F_phiB, Fr_phiB = self.get_mc_expressions('hdv', field_names = field_names_r)
+            
+            
+            self.f_phiA, self.F_phiA, self.Fr_phiA = f_phiA, F_phiA, Fr_phiA
+            self.f_phiB, self.F_phiB, self.Fr_phiB = f_phiB, F_phiB, Fr_phiB
+    
+            AA = self.A_l_custom(shape, wcs, feed_dict, f_phiA, F_phiA,
+                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+                    
+            AB = self.A_l_custom(shape, wcs, feed_dict, f_phiB, F_phiB,
+                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+                                    
+            NA = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiA, Fr_phiA,
+                                     xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names,
+                                     falpha = f_phiA, fbeta = f_phiA,
+                                     Aalpha = AA, Abeta = AA, groups = None, kmask = kmask)
+            
+            NB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiB, F_phiB, Fr_phiB,
+                                     xmask = xmask, ymask = ymask, field_names_alpha = field_names_r, field_names_beta = field_names_r,
+                                     falpha = f_phiB, fbeta = f_phiB,
+                                     Aalpha = AB, Abeta = AB, groups = None, kmask = kmask)
+            
+            
+            NAB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiB, Fr_phiB,
+                                     xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names_r,
+                                     falpha = f_phiA, fbeta = f_phiB,
+                                     Aalpha = AA, Abeta = AB, groups = None, kmask = kmask)
+            
+            wA, wB = getasymmweights(NA, NB, NAB)
+            
+            self.Ncoadd = getcoaddednoise(NA, NB, NAB)
+            
+            f = f_phiA
+            
+            F = symlens.e('wA')*F_phiA+symlens.e('wB')*F_phiB
+            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*Fr_phiB
+            
+            self.fdict['wA'] = wA*AA   #NOTE HERE DEFINITION OF WEIGHT
+            self.fdict['wB'] = wB*AB
+            
+        else:
+            f_phi, F_phi, Fr_phi = symlens.get_mc_expressions(estimator, XY, field_names, estimator_to_harden)
+            f, F, Fr = f_phi, F_phi, Fr_phi
+
+        
+        return f, F, Fr
+    
+    
+def getasymmweights(N_E1_E2, N_E2_E1, N_E1_E2_E2_E1):
+    w_E1_E2 = N_E2_E1-N_E1_E2_E2_E1
+    w_E2_E1 = N_E1_E2-N_E1_E2_E2_E1
+    w = N_E1_E2+N_E2_E1-2*N_E1_E2_E2_E1
+    w_E1_E2 /= w
+    w_E2_E1 /= w
+    return np.nan_to_num(w_E1_E2), np.nan_to_num(w_E2_E1)
+
+def getcoaddedmap(map_E1_E2, map_E2_E1, N_E1_E2, N_E2_E1, N_E1_E2_E2_E1):
+    w = N_E1_E2+N_E2_E1-2*N_E1_E2_E2_E1
+    coadd_noise = (N_E1_E2*N_E2_E1-N_E1_E2_E2_E1**2.)/w
+    w_E1_E2, w_E2_E1 = getasymmweights(N_E1_E2, N_E2_E1, N_E1_E2_E2_E1)
+    kappatot = np.nan_to_num(w_E1_E2)*map_E1_E2+np.nan_to_num(w_E2_E1)*map_E2_E1
+    return kappatot
+
+def getcoaddednoise(N_E1_E2, N_E2_E1, N_E1_E2_E2_E1):
+    w = N_E1_E2+N_E2_E1-2*N_E1_E2_E2_E1
+    coadd_noise = (N_E1_E2*N_E2_E1-N_E1_E2_E2_E1**2.)/w
+    return np.nan_to_num(coadd_noise)
+
+def load_load_spectra(dictionary):
+    def load_spectra(A, B):
+        return dictionary[A+B]
+    return load_spectra
+
+
+def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, modlmap):
 
     field_names = field_names_A+field_names_B
     all_combs = list(itertools.combinations_with_replacement(list(field_names), 2))
 
-    ells, ctt, ctt_lensed, detectnoise, fftot, fg, ftSZ = np.loadtxt(directory, unpack = True)
+    
+    ctt = load_spectra('uCMB', 'uCMB')
+    ctt_lensed = load_spectra('lCMB', 'lCMB')
+    
     logTT = np.log(ctt)
 
     theory2dps_lensed_CMB = interpolate(ells, ctt_lensed, modlmap)
@@ -358,7 +487,6 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
     
     #total2dB = interpolate(ells, fftotB, modlmap)
     #total2dAB = interpolate(ells, fftotAB, modlmap)
-    total2d = interpolate(ells, fftot, modlmap)
     
     feed_dict = {}
     
@@ -367,7 +495,63 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
     feed_dict['pc_T_T'] = 1.   
 
     for A, B in all_combs:
-        feed_dict[f'tC_{A}_T_{B}_T'] = total2d
+        
+        strA = f'_{A}' if A != '' else ''
+        strB = f'_{B}' if B != '' else ''
+        
+        feed_dict[f'tC{strA}_T{strB}_T'] = interpolate(ells, load_spectra(A, B), modlmap)
+    
+    return feed_dict
+
+
+
+    
+    
+class mapNamesObj():
+    def __init__(self, nu):
+        self.psmask = lambda x: 'ps_mask_5mJy_T_patch' 
+        self.cmb0template = lambda x: 'cmb0'   
+        self.cmb1template = lambda x: 'cmb1'
+        self.fgtemplate =  lambda x: f'sehgal_{x}_large_cutout' #f'sehgal_{x}_{nu}_large_cutout'
+        self.fggausstemplate = lambda x: f'gaussian_sehgal_{x}_large_cutout' #f'gaussian_sehgal_{x}_{nu}_large_cutout'
+        self.kappatemplate = lambda x: 'sehgal_kcmb_large_cutout'
+        self.galtemplate = lambda x: f'sehgal_lsstgold_large_cutout'
+        self.nu = nu
+        
+#########################################
+
+def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
+
+    if 'ilc' in field_names_A:
+        ilccase = True
+
+    ell, clunlen, cllen, _, ftot, _, _ = np.loadtxt(directory/'spectra_lensqest_un_len_detectnoise_fftot_fg_ftSZ.txt', unpack = True)
+    
+    el, ilcpower = np.loadtxt(directory/'power_ilc.txt', unpack = True)
+
+    el, crossilcpower = np.loadtxt(directory/'crosspower_ilc_tszdepr.txt', unpack = True)
+
+    el, deprilcpower = np.loadtxt(directory/'power_ilc_tszdepr.txt', unpack = True)
+    
+    if ilccase:
+        dictionary = {}
+        dictionary['ilcilc'] = ilcpower
+        dictionary['ilcdeprilcdepr'] = deprilcpower
+        dictionary['ilcilcdepr'] = crossilcpower
+        dictionary['ilcdeprilc'] = crossilcpower
+        dictionary['uCMBuCMB'] = np.interp(el, ell, clunlen)
+        dictionary['lCMBlCMB'] = np.interp(el, ell, cllen)
+    else:
+        #field_names_A = field_names_B, and no crosses
+        dictionary = {}
+        dictionary['uCMBuCMB'] = np.interp(el, ell, clunlen)
+        dictionary['lCMBlCMB'] = np.interp(el, ell, cllen)
+        for A, B in zip(field_names_A, field_names_B):
+            dictionary[f'{A}{B}'] = np.interp(el, ell, ftot)
+
+    load_spectra = load_load_spectra(dictionary)
+    
+    feed_dict = Loadfeed_dict_function(el, load_spectra, field_names_A, field_names_B, modlmap)
     
     return feed_dict
 
@@ -457,8 +641,8 @@ class LoadfftedMaps():
             fg_name_1 = fg_name+'_'+self.nu[0]
             fg_name_2 = fg_name+'_'+self.nu[1]
         else:
-            fg_name_1 = fg_name
-            fg_name_2 = fg_name
+            fg_name_1 = fg_name+'_'+str(self.nu)
+            fg_name_2 = fg_name+'_'+str(self.nu)
 
         fg_map_1 = self.read_fg(fg_name_1, num)
         fg_map_gauss_1 = self.read(self.mapsObj.fggausstemplate(fg_name_1), num, ext = '.txt')
@@ -484,22 +668,27 @@ class LoadfftedMaps():
     def getfgfactor_for_manusmaps(self, fg_name):
         
         factor = 1.
-        factor *= 1.e-26
-        factor /= self.C.dBdT(self.nu, 2.726)
-        factor *= 1.e6
+        
+        if isinstance(self.nu, list) or isinstance(self.nu, str):
+            return factor
+        
+        else:
+            factor *= 1.e-26
+            factor /= self.C.dBdT(self.nu, 2.726)
+            factor *= 1.e6
 
-        if fg_name == self.tSZ:
-            correction = 0.7
-        elif fg_name == self.CIB:
-            correction = 0.38
-        elif fg_name == self.kSZ:
-            correction = 0.82
-        elif fg_name == self.pt:
-            correction = 1.1
-        elif fg_name == self.totalFg:
-            correction = 1
-            
-        return correction*factor
+            if self.tSZ in fg_name:
+                correction = 0.7
+            elif self.CIB in fg_name:
+                correction = 0.38
+            elif self.kSZ in fg_name:
+                correction = 0.82
+            elif self.pt in fg_name:
+                correction = 1.1
+            elif self.totalFg in fg_name:
+                correction = 1
+
+            return correction*factor
         
 #########################################
 

@@ -48,6 +48,8 @@ if not Pplots.exists():
 
 fgnamefiles = data['fgnamefiles']
 
+oldversion = data['oldversion']
+
 Nsims = data['Nsims']
 
 estimators_dictionary = data['estimators']
@@ -146,7 +148,7 @@ for lconfig in lmaxes_configs:
                 outname = f'scatter_{k}_{fgnamefile}_{nu}.npy'
                 #NOTE, correction for the old Manus and Simos sims
                 A, A_octanct = 81*20**2, 5156.6
-                factor = np.sqrt(A/A_octanct)
+                factor = np.sqrt(A/A_octanct) if oldversion else 1.
                 np.save(P/outname, scatter*factor)
 
         noises = np.load(P/getoutname(noisetag))

@@ -14,6 +14,8 @@ from pixell import enmap, utils as putils
 
 import numpy as np
 
+import pathlib
+
 #Read info
 
 my_parser = argparse.ArgumentParser(description = 'Configuration file.')
@@ -154,8 +156,11 @@ for fgnamefile in fgnamefiles:
                 hardening_A = estimators_dictionary[estA]['hardening']
                 hardening_B = estimators_dictionary[estB]['hardening']
 
-                field_names_A = ['A1', 'A2']
-                field_names_B = ['B1', 'B2']
+                #field_names_A = ['A1', 'A2']
+                #field_names_B = ['B1', 'B2']
+                
+                field_names_A = estimators_dictionary[estA]['field_names']
+                field_names_B = estimators_dictionary[estB]['field_names']
 
                 if i == iMin:
                     changemap = lambda x: enmap.enmap(x, wcs)
@@ -171,7 +176,7 @@ for fgnamefile in fgnamefiles:
                     #Binner
                     Binner = u.Binner(shape, wcs, deltal = deltal, log = logmode, nBins = nlogBins)
 
-                    feed_dict = u.Loadfeed_dict(spectra_path, field_names_A, field_names_B, modlmap)
+                    feed_dict = u.Loadfeed_dict(pathlib.Path(spectra_path), field_names_A, field_names_B, modlmap)
 
                     #Estimator objects
                     A = u.Estimator(shape, wcs, feed_dict, estA, lmin_A, lmax_A,
@@ -182,7 +187,7 @@ for fgnamefile in fgnamefiles:
                                     field_names = field_names_B, groups = None, Lmin = Lmin, Lmax = Lmax,
                                     hardening = hardening_B, XY = 'TT')
 
-
+                     
                     NAB_cross = A.get_Nl_cross(B)
                     el, NAB_cross_binned = Binner.bin_spectra(NAB_cross)
                     dictionary.add_to_subdictionary(noisedicttag, f'{noisedicttag}-{estA}-{estB}', NAB_cross_binned)
