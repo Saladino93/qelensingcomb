@@ -25,6 +25,7 @@ args = my_parser.parse_args()
 
 values_file = args.Configuration
 
+
 if not pathlib.Path(values_file).exists():
     print('The file specified does not exist')
     sys.exit()
@@ -69,7 +70,12 @@ for e in estimators:
     num = elemento['number']
     lista_lmaxes += [np.linspace(lmax_min, lmax_max, num, dtype = int)]
 
-lmaxes_configs = list(itertools.product(*lista_lmaxes))
+
+lmaxes_configs_input = data['lmaxes_configs_input_to_try']
+if lmaxes_configs_input != '':
+    lmaxes_configs = lmaxes_configs_input
+else:
+    lmaxes_configs = list(itertools.product(*lista_lmaxes))
 
 del estimators_dictionary
 

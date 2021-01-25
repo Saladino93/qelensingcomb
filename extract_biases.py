@@ -59,6 +59,12 @@ for e in estimators:
 
 lmaxes_configs = list(itertools.product(*lista_lmaxes))
 
+
+lmaxes_configs_input_to_try = data['lmaxes_configs_input_to_try']
+if len(lmaxes_configs_input_to_try) > 0:
+    lmaxes_configs = lmaxes_configs_input_to_try
+
+
 Lmin, Lmax = data['Lmin'], data['Lmax']
 
 logmode = data['logmode']
@@ -141,12 +147,12 @@ for fgnamefile in fgnamefiles:
             dictionary.create_subdictionary(secondarydicttag)
             dictionary.create_subdictionary(primarycrossdicttag)
 
-            load_maps = True
+            load_nonfg_maps = True
 
             for estA, estB in estimatorcombs:
                 nuA = estimators_dictionary[estA]['nu']
                 nuB = estimators_dictionary[estB]['nu']
-
+                #print(nuA, nuB)
                 lmax_A = lmaxes_dict[estA]
                 lmax_B = lmaxes_dict[estB]
 
@@ -162,22 +168,26 @@ for fgnamefile in fgnamefiles:
                 field_names_A = estimators_dictionary[estA]['field_names']
                 field_names_B = estimators_dictionary[estB]['field_names']
 
+               
+                changemap = lambda x: enmap.enmap(x, wcs)
+                #Load maps for Leg1, Leg2 for estimator A
+                LoadA = u.LoadfftedMaps(mapsObj = mapsObjA, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft)
+                #Leg1, Leg2, for estimator B
+                LoadB = u.LoadfftedMaps(mapsObj = mapsObjB, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft)  
                 if i == iMin:
-                    changemap = lambda x: enmap.enmap(x, wcs)
-                    #Load maps for Leg1, Leg2 for estimator A
-                    LoadA = u.LoadfftedMaps(mapsObj = mapsObjA, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft)
-                    #Leg1, Leg2, for estimator B
-                    LoadB = u.LoadfftedMaps(mapsObj = mapsObjB, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft)  
                     #Get shape and wcs
                     shape = LoadA.read_shape()
                     lonCenter, latCenter = 0, 0
                     shape, wcs = enmap.geometry(shape = shape, res = 1.*putils.arcmin, pos = (lonCenter, latCenter))
                     modlmap = enmap.modlmap(shape, wcs)
                     #Binner
-                    Binner = u.Binner(shape, wcs, deltal = deltal, log = logmode, nBins = nlogBins)
+                    Binner = u.Binner(shape, wcs, lmin = 10, lmax = 4000, deltal = deltal, log = logmode, nBins = nlogBins)
 
                     feed_dict = u.Loadfeed_dict(pathlib.Path(spectra_path), field_names_A, field_names_B, modlmap)
 
+                    #NOTE, THIS SHOULD BE OUTSIDE THE IF
+                    #BUT IF iMax = iMin+1 , then it should be fine, will make code a bit faster
+                    #So this is fine as long as the number of processes is such that the above relation is ok
                     #Estimator objects
                     A = u.Estimator(shape, wcs, feed_dict, estA, lmin_A, lmax_A,
                                     field_names = field_names_A, groups = None, Lmin = Lmin, Lmax = Lmax,
@@ -192,14 +202,30 @@ for fgnamefile in fgnamefiles:
                     el, NAB_cross_binned = Binner.bin_spectra(NAB_cross)
                     dictionary.add_to_subdictionary(noisedicttag, f'{noisedicttag}-{estA}-{estB}', NAB_cross_binned)
 
+
+                '''
+                #For now this is necessary only if there are not enough process, so that I can have one process for each i, or iMin-iMax=1
+                A = u.Estimator(shape, wcs, feed_dict, estA, lmin_A, lmax_A,
+                                    field_names = field_names_A, groups = None, Lmin = Lmin, Lmax = Lmax,
+                                    hardening = hardening_A, XY = 'TT')
+
+                B = u.Estimator(shape, wcs, feed_dict, estB, lmin_B, lmax_B,
+                                    field_names = field_names_B, groups = None, Lmin = Lmin, Lmax = Lmax,
+                                    hardening = hardening_B, XY = 'TT')
+                '''
+
                 #if you still did not load the maps
-                if load_maps:
+                if load_nonfg_maps:
                     cmb0_fft, cmb1_fft, fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2, kappa_fft_masked, gal_fft_map = LoadA.read_all(fgnamefile, i)			
-                    if nuA != nuB:
-                        fg_fft_masked_B1, fg_gaussian_fft_masked_B1, fg_fft_masked_B2, fg_gaussian_fft_masked_B2 = LoadB.read_fg_only(fgnamefile, i)
-                    else:
-                        fg_fft_masked_B1, fg_gaussian_fft_masked_B1, fg_fft_masked_B2, fg_gaussian_fft_masked_B2 = fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2
-                    load_maps = False
+                
+                fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2 = LoadA.read_fg_only(fgnamefile, i)
+                
+                if nuA != nuB:
+                    fg_fft_masked_B1, fg_gaussian_fft_masked_B1, fg_fft_masked_B2, fg_gaussian_fft_masked_B2 = LoadB.read_fg_only(fgnamefile, i)
+                else:
+                    fg_fft_masked_B1, fg_gaussian_fft_masked_B1, fg_fft_masked_B2, fg_gaussian_fft_masked_B2 = fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2
+                    
+                load_nonfg_maps = False
 
 
                 #Calculate Q[Tf, Tf], for A and B
@@ -234,13 +260,34 @@ for fgnamefile in fgnamefiles:
 
                 #Calculate secondary for auto
 
+                '''
+                mapS1 = A.reconstruct(fg_fft_masked_A2, cmb0_fft)
+                mapS2 = A.reconstruct(fg_fft_masked_A2, cmb1_fft)
+                
+                el, secondary_A_B_or = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
+                secondary_A_B_or *= 8
+
                 mapS1 = A.reconstruct(cmb0_fft, fg_fft_masked_A2)
                 mapS1 = mapS1 + B.reconstruct(fg_fft_masked_B1, cmb0_fft)
                 mapS2 = A.reconstruct(cmb1_fft, fg_fft_masked_A2)
                 mapS2 = mapS2 + B.reconstruct(fg_fft_masked_A1, cmb1_fft)
 
-                el, secondary_A_B = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
-                secondary_A_B *= 2
+                el, secondary_A_B_old = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
+                secondary_A_B_old *= 2
+                
+                print(secondary_A_B_or/secondary_A_B_old) 
+                '''
+
+
+                mapA0 =  A.reconstruct(fg_fft_masked_A1, cmb0_fft)+ A.reconstruct(cmb0_fft, fg_fft_masked_A2)
+                mapB1 = B.reconstruct(fg_fft_masked_B1, cmb1_fft) + A.reconstruct(cmb1_fft, fg_fft_masked_B2)
+                el, partial01 = Binner.bin_maps(mapA0, mapB1, pixel_units = True)
+
+                mapA1 = A.reconstruct(fg_fft_masked_A1, cmb1_fft)+ A.reconstruct(cmb1_fft, fg_fft_masked_A2)
+                mapB0 = B.reconstruct(fg_fft_masked_B1, cmb0_fft) + A.reconstruct(cmb0_fft, fg_fft_masked_B2)
+                el, partial10 = Binner.bin_maps(mapA1, mapB0, pixel_units = True)
+
+                secondary_A_B = partial01+partial10
 
                 dictionary.add_to_subdictionary(trispectrumdicttag, f'{trispectrumdicttag}-{estA}-{estB}', trispectrum_A_B)
                 dictionary.add_to_subdictionary(primarydicttag, f'{primarydicttag}-{estA}-{estB}', primary_A_B)
