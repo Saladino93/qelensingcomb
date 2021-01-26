@@ -509,11 +509,11 @@ def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, mod
     
 class mapNamesObj():
     def __init__(self, nu):
-        self.psmask = lambda x: 'ps_mask_5mJy_T_patch' 
+        self.psmask = lambda x, lmax: f'ps_mask_lmax_{lmax}_5mJy_T_patch' 
         self.cmb0template = lambda x: 'cmb0'   
         self.cmb1template = lambda x: 'cmb1'
-        self.fgtemplate =  lambda x: f'sehgal_{x}_large_cutout' #f'sehgal_{x}_{nu}_large_cutout'
-        self.fggausstemplate = lambda x: f'gaussian_sehgal_{x}_large_cutout' #f'gaussian_sehgal_{x}_{nu}_large_cutout'
+        self.fgtemplate =  lambda x, lmax: f'lmax_{lmax}_sehgal_{x}_large_cutout' if ('ilc' in x) else f'sehgal_{x}_large_cutout' #f'sehgal_{x}_{nu}_large_cutout'
+        self.fggausstemplate = lambda x, lmax: f'gaussian_lmax_{lmax}_sehgal_{x}_large_cutout' #f'gaussian_sehgal_{x}_{nu}_large_cutout'
         self.kappatemplate = lambda x: 'sehgal_kcmb_large_cutout'
         self.galtemplate = lambda x: f'sehgal_lsstgold_large_cutout'
         self.nu = nu
@@ -577,9 +577,11 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
 
 
 class LoadfftedMaps():
-    def __init__(self, mapsObj, WR, ConvertingObj, changemap, getfft,
+    def __init__(self, mapsObj, WR, ConvertingObj, changemap, getfft, lmax,
                  tSZ = 'tsz', CIB = 'cib', kSZ = 'ksz', pt = 'radiops', total = 'total'):
         
+        self.lmax = lmax
+
         self.mapsObj = mapsObj
 
         self.nu = mapsObj.nu
@@ -601,7 +603,7 @@ class LoadfftedMaps():
         
         factor = self.getfgfactor_for_manusmaps(fg_name)
         
-        fg_map = self.read(self.mapsObj.fgtemplate(fg_name), num, ext = ext)
+        fg_map = self.read(self.mapsObj.fgtemplate(fg_name, self.lmax), num, ext = ext)
         fg_map -= np.mean(fg_map)
         fg_map *= factor
         
@@ -628,7 +630,7 @@ class LoadfftedMaps():
         cmb0 = self.read(self.mapsObj.cmb0template(''), num, '_', ext = '.txt')
         cmb1 = self.read(self.mapsObj.cmb1template(''), num, '_', ext = '.txt')
  
-        fg_mask = self.read(self.mapsObj.psmask(''), num, '', ext = '.txt')
+        fg_mask = self.read(self.mapsObj.psmask('', self.lmax), num, '', ext = '.txt')
         
         kappa = self.read(self.mapsObj.kappatemplate(''), num, stringa = '_', ext = '.txt')
         
@@ -663,12 +665,12 @@ class LoadfftedMaps():
             fg_name_2 = fg_name+'_'+str(self.nu)
 
         fg_map_1 = self.read_fg(fg_name_1, num)
-        fg_map_gauss_1 = self.read(self.mapsObj.fggausstemplate(fg_name_1), num, ext = '.txt')
+        fg_map_gauss_1 = self.read(self.mapsObj.fggausstemplate(fg_name_1, self.lmax), num, ext = '.txt')
 
         fg_map_2 = self.read_fg(fg_name_2, num)
-        fg_map_gauss_2 = self.read(self.mapsObj.fggausstemplate(fg_name_2), num, ext = '.txt')
+        fg_map_gauss_2 = self.read(self.mapsObj.fggausstemplate(fg_name_2, self.lmax), num, ext = '.txt')
 
-        fg_mask = self.read(self.mapsObj.psmask(''), num, '', ext = '.txt')
+        fg_mask = self.read(self.mapsObj.psmask('', self.lmax), num, '', ext = '.txt')
 
         fg_map_1 = self.changemap(fg_map_1)
         fg_map_gauss_1 = self.changemap(fg_map_gauss_1)

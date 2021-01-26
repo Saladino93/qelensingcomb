@@ -171,9 +171,9 @@ for fgnamefile in fgnamefiles:
                
                 changemap = lambda x: enmap.enmap(x, wcs)
                 #Load maps for Leg1, Leg2 for estimator A
-                LoadA = u.LoadfftedMaps(mapsObj = mapsObjA, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft)
+                LoadA = u.LoadfftedMaps(mapsObj = mapsObjA, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft, lmax = lmax_A)
                 #Leg1, Leg2, for estimator B
-                LoadB = u.LoadfftedMaps(mapsObj = mapsObjB, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft)  
+                LoadB = u.LoadfftedMaps(mapsObj = mapsObjB, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft, lmax = lmax_B)  
                 if i == iMin:
                     #Get shape and wcs
                     shape = LoadA.read_shape()
@@ -260,25 +260,25 @@ for fgnamefile in fgnamefiles:
 
                 #Calculate secondary for auto
 
-                '''
-                mapS1 = A.reconstruct(fg_fft_masked_A2, cmb0_fft)
-                mapS2 = A.reconstruct(fg_fft_masked_A2, cmb1_fft)
                 
-                el, secondary_A_B_or = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
-                secondary_A_B_or *= 8
+                #mapS1 = A.reconstruct(fg_fft_masked_A2, cmb0_fft)
+                #mapS2 = A.reconstruct(fg_fft_masked_A2, cmb1_fft)
+                
+                #el, secondary_A_B_or = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
+                #secondary_A_B_or *= 8
 
                 mapS1 = A.reconstruct(cmb0_fft, fg_fft_masked_A2)
                 mapS1 = mapS1 + B.reconstruct(fg_fft_masked_B1, cmb0_fft)
                 mapS2 = A.reconstruct(cmb1_fft, fg_fft_masked_A2)
                 mapS2 = mapS2 + B.reconstruct(fg_fft_masked_A1, cmb1_fft)
 
-                el, secondary_A_B_old = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
-                secondary_A_B_old *= 2
+                el, secondary_A_B = Binner.bin_maps(mapS1, mapS2, pixel_units = True)
+                secondary_A_B *= 2
                 
-                print(secondary_A_B_or/secondary_A_B_old) 
+                
                 '''
 
-
+                
                 mapA0 =  A.reconstruct(fg_fft_masked_A1, cmb0_fft)+ A.reconstruct(cmb0_fft, fg_fft_masked_A2)
                 mapB1 = B.reconstruct(fg_fft_masked_B1, cmb1_fft) + A.reconstruct(cmb1_fft, fg_fft_masked_B2)
                 el, partial01 = Binner.bin_maps(mapA0, mapB1, pixel_units = True)
@@ -288,7 +288,7 @@ for fgnamefile in fgnamefiles:
                 el, partial10 = Binner.bin_maps(mapA1, mapB0, pixel_units = True)
 
                 secondary_A_B = partial01+partial10
-
+                '''
                 dictionary.add_to_subdictionary(trispectrumdicttag, f'{trispectrumdicttag}-{estA}-{estB}', trispectrum_A_B)
                 dictionary.add_to_subdictionary(primarydicttag, f'{primarydicttag}-{estA}-{estB}', primary_A_B)
                 dictionary.add_to_subdictionary(secondarydicttag, f'{secondarydicttag}-{estA}-{estB}', secondary_A_B)

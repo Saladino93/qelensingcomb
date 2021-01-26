@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --nodes=30
+#SBATCH --nodes=12
 #SBATCH --time=4:00:00
-#SBATCH --ntasks-per-node=16
+#SBATCH --ntasks-per-node=40
 #SBATCH --output=/scratch/r/rbond/omard/CORI17112020/mpioutput/mpi_output_%j.txt
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=1
 
 
 cd $SLURM_SUBMIT_DIR
