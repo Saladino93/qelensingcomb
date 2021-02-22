@@ -12,13 +12,20 @@ from mystic.constraints import as_constraint
 import pathlib
 
 class Opt():
-    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises):
+    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, estimators_to_ignore = None):
 
         self.ells = ells
         self.theta = theta
         self.biases = biases
         self.noises = noises
         self.theory = theory
+
+        #TEMPORARY FOR NOW
+        if estimators_to_ignore is not None:
+            index = estimators.index(estimators_to_ignore)
+            self.theta =     
+            estimators = estimators[index:]
+
         self.estimators = estimators
         self.lenestimators = len(estimators)
 
@@ -251,6 +258,8 @@ class Opt():
         weights_per_l = self.get_final_variance_weights(result.x, self.ells_selected, self.theory_selected, self.theta_selected, inv_variance)
 
         result.set_weights(tuple(list(ws)+[weights_per_l]))
+        
+        self.monitor = mon
         
         return result
        

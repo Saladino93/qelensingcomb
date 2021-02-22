@@ -137,7 +137,7 @@ def get_est_weights(Opt, index, invvar):
 def get_dict_results(fgnamefile, lmax_directory, fb):
 
     P = PP/lmax_directory
-    print(P)
+
     getoutname = lambda key: f'{key}_{nu}.npy'
     noises = np.load(P/getoutname(noisetag))
 
@@ -153,9 +153,6 @@ def get_dict_results(fgnamefile, lmax_directory, fb):
     ells = np.load(P/getoutname('ells'))
     theta = np.load(P/getoutname('theta'))
     thetacross = np.load(P/getoutname('thetacross'))
-
-    print(P/getoutname('sum_all_totalabsbias'))
-    print(f'BIASES SHAPE {kg.shape}')
 
     Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises)
     Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biasescross, noises)

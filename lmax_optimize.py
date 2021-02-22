@@ -132,6 +132,9 @@ if invvariance:
 else:
     inv_variance_dir = ''
 
+
+bias_source = data['optimisation']['bias_source']
+
 for fgnamefile in [fgnamefiles[0]]:
     for lmaxes in lmaxes_configs:
         lmaxes_dict = {}
@@ -152,7 +155,7 @@ for fgnamefile in [fgnamefiles[0]]:
 
         if bias_source == 'total':
             biases = np.load(P/'total'/getoutname2(totalbiaskey)) #getoutname('sum_all_totalbias'))
-            biasescross = np.load(P/'total'/getoutname2(primarycrosskey)) #/getoutname('sum_all_crosstotalbias'))
+            biasescross = np.load(P/'total'/getoutname2(primarycrosstag)) #/getoutname('sum_all_crosstotalbias'))
         elif bias_source == 'sum_bias':
             biases = np.load(P/getoutname(totalbiaskey))
             biasescross = np.load(P/getoutname(sum_all_crosstotalbias))

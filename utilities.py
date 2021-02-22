@@ -509,11 +509,11 @@ def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, mod
     
 class mapNamesObj():
     def __init__(self, nu):
-        self.psmask = lambda x, lmax: f'ps_mask_lmax_{lmax}_5mJy_T_patch' 
+        self.psmask = lambda x, lmax: f'ps_mask_5mJy_T_patch' 
         self.cmb0template = lambda x: 'cmb0'   
         self.cmb1template = lambda x: 'cmb1'
-        self.fgtemplate =  lambda x, lmax: f'lmax_{lmax}_sehgal_{x}_large_cutout' if ('ilc' in x) else f'sehgal_{x}_large_cutout' #f'sehgal_{x}_{nu}_large_cutout'
-        self.fggausstemplate = lambda x, lmax: f'gaussian_lmax_{lmax}_sehgal_{x}_large_cutout' #f'gaussian_sehgal_{x}_{nu}_large_cutout'
+        self.fgtemplate =  lambda x, lmax: f'sehgal_{x}_large_cutout'
+        self.fggausstemplate = lambda x, lmax: f'gaussian_sehgal_{x}_large_cutout' #f'gaussian_sehgal_{x}_{nu}_large_cutout'
         self.kappatemplate = lambda x: 'sehgal_kcmb_large_cutout'
         self.galtemplate = lambda x: f'sehgal_lsstgold_large_cutout'
         self.nu = nu
@@ -844,14 +844,14 @@ class Binner(maps.FourierCalc):
         cents, cl = binner.bin(p2d)
         return cents, cl
     
-    def bin_maps(self, map1, map2 = None, pixel_units = False):
+    def bin_maps(self, map1, map2 = None, pixel_units = False, get_p2d = True):
         '''
         map1, map2 already ffted
         '''
         if map2 is None:
             map2 = map1
         p2d = self.f2power(map1, map2, pixel_units = pixel_units)
-        return self.bin_spectra(p2d)
+        return self.bin_spectra(p2d) if not get_p2d else (0, p2d)
     
     def set_binning(self, lmin, lmax, deltal = None, log = True, nBins = 20):
         self.lmin = lmin

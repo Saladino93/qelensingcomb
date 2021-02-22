@@ -72,7 +72,7 @@ for e in estimators:
 
 
 lmaxes_configs_input = data['lmaxes_configs_input_to_try']
-if lmaxes_configs_input != '':
+if len(lmaxes_configs_input) > 0:
     lmaxes_configs = lmaxes_configs_input
 else:
     lmaxes_configs = list(itertools.product(*lista_lmaxes))

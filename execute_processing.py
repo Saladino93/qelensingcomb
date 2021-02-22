@@ -48,9 +48,15 @@ fbs = optdict['fbs']
 inv_variances = optdict['inv_variances']
 noiseequalsbias = optdict['noiseequalsbias']
 
+estimators_dictionary = data['estimators']
+estimators = list(estimators_dictionary.keys())
+
 for inv_ in inv_variances:
     for neb in noiseequalsbias:
         for fb in fbs:
             for i in range(iMin, iMax):
-                h, s, b = re.findall(r'\d+', all_lmaxes_directories[i])
-                os.system(f'python process_results.py {values_file} {fb} {neb} {inv_} {h} {s} {b}')            
+                if len(estimators) == 3:
+                    elements = re.findall(r'\d+', all_lmaxes_directories[i])
+                    if len(elements) == 3:
+                        h, s, b = elements
+                        os.system(f'python process_results.py {values_file} {fb} {neb} {inv_} {h} {s} {b}')            

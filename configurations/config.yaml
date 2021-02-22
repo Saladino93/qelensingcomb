@@ -1,15 +1,15 @@
-sims_directory: '../extract_sehgal/manusmaps/flat_maps_large/newmaps25012021/'
-savingdirectory: 'output_biases/'
+sims_directory: '../extract_sehgal/manusmaps/flat_maps_large/newmaps11022021/148/'
+savingdirectory: 'output_biases1102/'
 
-analysisdirectory: 'output/'
-plotsdirectory: 'plots/'
-resultsdirectory: 'resultssumfg/'
+analysisdirectory: 'output1102/'
+plotsdirectory: 'plots1102/'
+resultsdirectory: 'resultssumfg1102/'
 #ells, ctt, ctt_lensed, detectnoise, fftot, fg, ftSZ
 spectra_path: 'input_spectra/'
 
 
-lmaxes_configs_input_to_try: [[2000, 2000, 2000, 2000], [2500, 2500, 2500, 2500], [3000, 3000, 3000, 3000],
-                               [3500, 3500, 3500, 3500], [4000, 4000, 4000, 4000], [4500, 4500, 4500, 4500]]
+lmaxes_configs_input_to_try: [] #[[2000, 2000, 2000, 2000], [2500, 2500, 2500, 2500], [3000, 3000, 3000, 3000],
+                              # [3500, 3500, 3500, 3500], [4000, 4000, 4000, 4000], [4500, 4500, 4500, 4500]]
 
 Nsims: 80
 oldversion: True
@@ -28,8 +28,7 @@ deltalplot: 100
 lmin_sel: 30
 lmax_sel: 1200
 
-fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops', 'total']
-
+fgnamefiles: ['cib', 'tsz', 'radiops', 'ksz', 'total']
 
 #number of configs is 120
 #if size of srun is size, then size/Nsims number of groups
@@ -90,9 +89,9 @@ sumallcrosstotalabsbiaskey: 'sum_all_crosstotalabsbias'
 sumallcrosstotalbiaskey: 'sum_all_crosstotalbias'
 
 optimisation:
-    gtol: 10000
-    fbs: [1., 0.01, 0.03, 0.05, 0.1, 0.5, 2, 5, 10, 100, 0.]
-    inv_variances: [1, 0]
+    gtol: 3000
+    fbs: [0., 0.01, 0.1,  0.5, 1., 2, 5, 10, 100]
+    inv_variances: [1]
     noiseequalsbias: [0]
     bias_source: 'total' # can be total, sum_bias, sum_abs_bias: from bias of sum of fgs at map level, sum bias, sum abs bias
 
