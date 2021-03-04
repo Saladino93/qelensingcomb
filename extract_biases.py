@@ -168,12 +168,26 @@ for fgnamefile in fgnamefiles:
                 field_names_A = estimators_dictionary[estA]['field_names']
                 field_names_B = estimators_dictionary[estB]['field_names']
 
-               
+                
+                tszprofileA = estimators_dictionary[estA]['tszprofile']
+                tszprofileB = estimators_dictionary[estB]['tszprofile']
+                tszprofile_A = None if tszprofileA == '' else 1.
+                tszprofile_B = None if tszprofileB == '' else 1.
+
                 changemap = lambda x: enmap.enmap(x, wcs)
                 #Load maps for Leg1, Leg2 for estimator A
                 LoadA = u.LoadfftedMaps(mapsObj = mapsObjA, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft, lmax = lmax_A)
                 #Leg1, Leg2, for estimator B
-                LoadB = u.LoadfftedMaps(mapsObj = mapsObjB, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft, lmax = lmax_B)  
+                LoadB = u.LoadfftedMaps(mapsObj = mapsObjB, WR = WR, ConvertingObj = C, changemap = changemap, getfft = u.fft, lmax = lmax_B) 
+
+                estimator_to_harden_A = 'hu_ok' if (estA in ['bh', 'pbh']) else estA
+                estimator_to_harden_B = 'hu_ok' if (estB in ['bh', 'pbh']) else estB
+  
+                #MAYBE JUST ADD esttohard in yaml config
+                
+                estimator_to_harden_A = 'symm' if (estA in ['symmbh']) else estA
+                estimator_to_harden_B = 'symm' if (estB in ['symmbh']) else estB
+ 
                 if i == iMin:
                     #Get shape and wcs
                     shape = LoadA.read_shape()
@@ -183,7 +197,7 @@ for fgnamefile in fgnamefiles:
                     #Binner
                     Binner = u.Binner(shape, wcs, lmin = 10, lmax = 4000, deltal = deltal, log = logmode, nBins = nlogBins)
 
-                    feed_dict = u.Loadfeed_dict(pathlib.Path(spectra_path), field_names_A, field_names_B, modlmap)
+                    feed_dict = u.Loadfeed_dict(pathlib.Path(spectra_path), field_names_A, field_names_B, modlmap, hardening_A, hardening_B, tszprofile_A, tszprofile_B)
 
                     #NOTE, THIS SHOULD BE OUTSIDE THE IF
                     #BUT IF iMax = iMin+1 , then it should be fine, will make code a bit faster
@@ -191,11 +205,11 @@ for fgnamefile in fgnamefiles:
                     #Estimator objects
                     A = u.Estimator(shape, wcs, feed_dict, estA, lmin_A, lmax_A,
                                     field_names = field_names_A, groups = None, Lmin = Lmin, Lmax = Lmax,
-                                    hardening = hardening_A, XY = 'TT') 
+                                    hardening = hardening_A, estimator_to_harden = estimator_to_harden_A, XY = 'TT') 
 
                     B = u.Estimator(shape, wcs, feed_dict, estB, lmin_B, lmax_B,
                                     field_names = field_names_B, groups = None, Lmin = Lmin, Lmax = Lmax,
-                                    hardening = hardening_B, XY = 'TT')
+                                    hardening = hardening_B, estimator_to_harden = estimator_to_harden_B, XY = 'TT')
 
                      
                     NAB_cross = A.get_Nl_cross(B)
@@ -207,11 +221,11 @@ for fgnamefile in fgnamefiles:
                 #For now this is necessary only if there are not enough process, so that I can have one process for each i, or iMin-iMax=1
                 A = u.Estimator(shape, wcs, feed_dict, estA, lmin_A, lmax_A,
                                     field_names = field_names_A, groups = None, Lmin = Lmin, Lmax = Lmax,
-                                    hardening = hardening_A, XY = 'TT')
+                                    hardening = hardening_A, estimator_to_harden = estimator_to_harden_A, XY = 'TT')
 
                 B = u.Estimator(shape, wcs, feed_dict, estB, lmin_B, lmax_B,
                                     field_names = field_names_B, groups = None, Lmin = Lmin, Lmax = Lmax,
-                                    hardening = hardening_B, XY = 'TT')
+                                    hardening = hardening_B, estimator_to_harden = estimator_to_harden_B, XY = 'TT')
                 
 
                 #if you still did not load the maps

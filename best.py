@@ -22,10 +22,13 @@ class Opt():
 
         #TEMPORARY FOR NOW
         if estimators_to_ignore is not None:
-            index = estimators.index(estimators_to_ignore)
-            self.theta =     
+            index = estimators.index(estimators_to_ignore)+1
+            self.theta = self.theta[index:, index:, index:, index:, ...]
+            self.biases = self.biases[index:, index:, ...]
+            self.noises = self.noises[index:, index:, ...]
             estimators = estimators[index:]
-
+            
+            
         self.estimators = estimators
         self.lenestimators = len(estimators)
 
@@ -104,7 +107,7 @@ class Opt():
             weight_per_l = x[-self.nbins:]
         return weight_per_l
 
-    def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False):
+    def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False, noiseparameter = 1.):
         
         def f(x):
             a = self.get_a(x, inv_variance)
@@ -117,7 +120,7 @@ class Opt():
             biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)**2.
             squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.) 
 
-            total_result = squarednoiseterm+biasterm*fb
+            total_result = noiseparameter*squarednoiseterm+biasterm*fb
 
             return total_result
 
@@ -145,7 +148,7 @@ class Opt():
         return np.trapz(y*ells, ells)*(2*np.pi)/(2*np.pi)**2*factor
        
 
-    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True):
+    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True, noiseparameter = 1.):
         '''
         Methods: diff-ev, SLSQP
         '''
@@ -158,7 +161,9 @@ class Opt():
 
         if x0 is None:
             x0 = []
-            if self.lenestimators == 3:
+            if self.lenestimators == 2:
+                v = np.random.rand(1)/2
+            elif self.lenestimators == 3:
                 v = np.random.rand(2)/2
             elif self.lenestimators == 4:
                 v = np.random.rand(3)/2
@@ -201,7 +206,7 @@ class Opt():
         else:
             prepare = lambda x: x
 
-        f, noisef, biasf = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance)
+        f, noisef, biasf = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, noiseparameter = noiseparameter)
         self.f = f
         self.noisef = noisef
         self.biasf = biasf
@@ -212,7 +217,7 @@ class Opt():
         def constraint_eq(x):
             x = np.array(x)
             a = self.get_a(x, inv_variance)
-            a[:, 2] = 1-a[:, 0]-a[:, 1]
+            a[:, -1] = 1-np.sum(a[:, :-1], axis = 1)
             if not inv_variance:
                 x[:-self.nbins] = a.flatten()
             else:

@@ -209,7 +209,7 @@ class Estimator(object):
                  lmin, lmax,
                  field_names = None, groups = None, 
                  Lmin = 20, Lmax = 6000, 
-                 hardening = None, XY = 'TT'):
+                 hardening = None, estimator_to_harden = 'hu_ok', XY = 'TT'):
 
         if hardening == '':
             hardening = None        
@@ -219,8 +219,8 @@ class Estimator(object):
                                              Lmin = Lmin, Lmax = Lmax, Lx = None, Ly = None)
 
         self.fdict = feed_dict
-            
-        f, F, Fr = self.get_mc_expressions(estimator, XY = 'TT', field_names = field_names, estimator_to_harden = 'hu_ok', 
+           
+        f, F, Fr = self.get_mc_expressions(estimator, XY = 'TT', field_names = field_names, estimator_to_harden = estimator_to_harden, 
                            hardening = hardening, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
 
         if estimator == 'symm':
@@ -373,11 +373,19 @@ class Estimator(object):
     
     def get_mc_expressions(self, estimator, XY = 'TT', field_names = None, estimator_to_harden = 'hu_ok', 
                            hardening = None, feed_dict = None, shape = None, wcs = None, xmask = None, ymask = None, kmask= None):
+        f1, f2 = field_names if field_names is not None else (None,None)
+        def t1(ab):
+            a,b = ab
+            return symlens.e(qe.cross_names(a,b,f1,f1)+"_l1")
+        def t2(ab):
+            a,b = ab
+            return symlens.e(qe.cross_names(a,b,f2,f2)+"_l2")
         
         if hardening is not None:
-            f_phi, F_phi, Fr_phi = self.get_mc_expressions('hu_ok', field_names = field_names)
+            f_phi, F_phi, Fr_phi = self.get_mc_expressions(estimator_to_harden, field_names = field_names, 
+					feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
             f_bias, F_bias, _ = self.get_mc_expressions(hardening, field_names = field_names)
-            f_bh, F_bh, Fr_bh = self.get_mc_expressions(f'{hardening}-hardened', estimator_to_harden = 'hu_ok', field_names = field_names)
+            f_bh, F_bh, Fr_bh = self.get_mc_expressions(f'{hardening}-hardened', estimator_to_harden = estimator_to_harden, field_names = field_names, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
             # 1 / Response of the biasing agent to the biasing agent
             self.fdict[f'A{hardening}_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_bias,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
@@ -386,7 +394,23 @@ class Estimator(object):
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
 
             f, F, Fr = f_bh, F_bh, Fr_bh
-            
+        
+        elif 'hardened' in estimator:
+            hardening, hardened_name = estimator.split('-')
+            assert XY=="TT", "BH only implemented for TT."
+            f_phi, F_phi, _ = self.get_mc_expressions(estimator_to_harden, XY, field_names = field_names, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
+            f_src, _, _ = self.get_mc_expressions(hardening, XY, field_names = field_names)
+            A_src_src = symlens.e(f'A{hardening}_{hardening}_L')
+            A_phi_src = symlens.e(f'Aphi_{hardening}_L')
+            f = f_phi - A_src_src / A_phi_src * f_src
+            F = f / t1(XY) / t2(XY) / 2
+            fr = f
+            Fr = F
+        elif 'src' in estimator:
+            f = symlens.e(f'pc{estimator}_T_T_l1')*symlens.e(f'pc{estimator}_T_T_l2')
+            F = f / t1(XY) / t2(XY) / 2
+            fr = f
+            Fr = F
         elif estimator == 'symm':
             
             f_phiA, F_phiA, Fr_phiA = self.get_mc_expressions('hdv', field_names = field_names)
@@ -469,8 +493,11 @@ def load_load_spectra(dictionary):
         return dictionary[A+B]
     return load_spectra
 
+def loadtszprofile(filetxt, modlmap):
+    ells, ul = np.loadtxt(filetxt, unpack = True)
+    return interpolate(ells, ul, modlmap)
 
-def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, modlmap):
+def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, modlmap, hardeningA = None, hardeningB = None, tszprofileA = None, tszprofileB = None):
 
     field_names = field_names_A+field_names_B
     all_combs = list(itertools.combinations_with_replacement(list(field_names), 2))
@@ -491,8 +518,15 @@ def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, mod
     feed_dict = {}
     
     feed_dict['uC_T_T'] = theory2dps_unlensed_CMB
-    feed_dict['duC_T_T'] = grad_theory2dps_unlensed_CMB    
-    feed_dict['pc_T_T'] = 1.   
+    feed_dict['duC_T_T'] = grad_theory2dps_unlensed_CMB
+
+    hardeningA = None if (hardeningA == '') else hardeningA
+    hardeningB = None if (hardeningB == '') else hardeningB
+ 
+    if hardeningA is not None:   
+        feed_dict[f'pc{hardeningA}_T_T'] = 1. if tszprofileA is None else load_spectra('profile', 'profile')
+    if hardeningB is not None:
+        feed_dict[f'pc{hardeningB}_T_T'] = 1. if tszprofileB is None else load_spectra('profile', 'profile')
 
     for A, B in all_combs:
         
@@ -520,7 +554,7 @@ class mapNamesObj():
         
 #########################################
 
-def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
+def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap, hardeningA = None, hardeningB = None, tszprofileA = None, tszprofileB = None):
 
     
     ilccase = False
@@ -535,7 +569,7 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
     el, crossilcpower = np.loadtxt(directory/'crosspower_ilc_tszdepr.txt', unpack = True)
 
     el, deprilcpower = np.loadtxt(directory/'power_ilc_tszdepr.txt', unpack = True)
-    
+ 
     if ilccase:
         dictionary = {}
         dictionary['ilcilc'] = ilcpower
@@ -566,10 +600,12 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap):
         dictionary['lCMBlCMB'] = np.interp(el, ell, cllen)
         for A, B in list(itertools.product(field_names_A, field_names_B)): #zip(field_names_A, field_names_B):
             dictionary[f'{A}{B}'] = np.interp(el, ell, ftot)
-            
+    
+    filetxt = directory/'tszProfile.txt'
+    dictionary['profileprofile'] = loadtszprofile(filetxt, modlmap)
     load_spectra = load_load_spectra(dictionary)
     
-    feed_dict = Loadfeed_dict_function(el, load_spectra, field_names_A, field_names_B, modlmap)
+    feed_dict = Loadfeed_dict_function(el, load_spectra, field_names_A, field_names_B, modlmap, hardeningA, hardeningB, tszprofileA, tszprofileB)
     
     return feed_dict
 
@@ -793,7 +829,7 @@ class dictionary():
         return tag in self.dictionary.keys()
 
     def exists_in_subdictionary(self, tag, tagsub):
-        return tag in self.dictionary[tag].keys()
+        return tagsub in self.dictionary[tag].keys()
 
     def add(self, tag, element):
         self.dictionary[tag] = element
@@ -844,7 +880,7 @@ class Binner(maps.FourierCalc):
         cents, cl = binner.bin(p2d)
         return cents, cl
     
-    def bin_maps(self, map1, map2 = None, pixel_units = False, get_p2d = True):
+    def bin_maps(self, map1, map2 = None, pixel_units = False, get_p2d = False):
         '''
         map1, map2 already ffted
         '''
