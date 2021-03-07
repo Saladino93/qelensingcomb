@@ -185,8 +185,8 @@ for fgnamefile in fgnamefiles:
   
                 #MAYBE JUST ADD esttohard in yaml config
                 
-                estimator_to_harden_A = 'symm' if (estA in ['symmbh']) else estA
-                estimator_to_harden_B = 'symm' if (estB in ['symmbh']) else estB
+                estimator_to_harden_A = 'symm' if (estA in ['symmbh', 'symmpbh']) else estA
+                estimator_to_harden_B = 'symm' if (estB in ['symmbh', 'symmpbh']) else estB
  
                 if i == iMin:
                     #Get shape and wcs

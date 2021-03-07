@@ -37,6 +37,16 @@ fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops', 'total']
 #e.g. size = 240, 480, 960,...
 ##lmax_min, lmax_max, are for the available configs
 estimators:
+        hu_ok:
+                nu: ilc
+                hardening: ''
+                lmax_min: 3000
+                lmax_max: 4500
+                number: 4
+                direc_name: h
+                color: blue
+                label: QE
+                field_names: ['ilcA', 'ilcB']
         shear:
                 nu: ilc
                 hardening: ''
@@ -48,16 +58,49 @@ estimators:
                 color: red
                 label: Shear
                 field_names: ['ilcA', 'ilcB']
-        symmbh:
+        bh:
+                nu: ilc
+                hardening: srcbh
+                tszprofile: ''
+                lmax_min: 2000
+                lmax_max: 4500
+                number: 6
+                direc_name: b
+                color: green
+                label: BH
+                field_names: ['ilcA', 'ilcB']
+        pbh:
+                nu: ilc
+                hardening: srcpbh
+                tszprofile: 1
+                lmax_min: 2000
+                lmax_max: 4500
+                number: 6
+                direc_name: p
+                color: purple
+                label: PBH
+                field_names: ['ilcA', 'ilcB']
+        symmpbh:
                 nu: [ilc, ilc_depr]
-                hardening: src
+                hardening: srcspbh
                 tszprofile: ''
                 lmax_min: 2500
                 lmax_max: 4500
                 number: 5
-                direc_name: sy
-                color: orange
-                label: Symm
+                direc_name: sypbh
+                color: yellow
+                label: SymmBH
+                field_names: ['ilc', 'ilcdepr']
+        symmbh:
+                nu: [ilc, ilc_depr]
+                hardening: srcsbh
+                tszprofile: ''
+                lmax_min: 2500
+                lmax_max: 4500
+                number: 5
+                direc_name: sybh
+                color: brown
+                label: SymmBH
                 field_names: ['ilc', 'ilcdepr']
 noisekey: N
 trispectrumkey: T
