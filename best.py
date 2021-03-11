@@ -164,9 +164,9 @@ class Opt():
             if self.lenestimators == 2:
                 v = np.random.rand(1)/2
             elif self.lenestimators == 3:
-                v = np.random.rand(2)/2
+                v = np.random.rand(2)/3
             elif self.lenestimators == 4:
-                v = np.random.rand(3)/2
+                v = np.random.rand(3)/4
             for a in v:
                 x0 += [a]
             x0 += [1.-np.sum(v)]

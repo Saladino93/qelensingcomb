@@ -223,7 +223,7 @@ class Estimator(object):
         f, F, Fr = self.get_mc_expressions(estimator, XY = 'TT', field_names = field_names, estimator_to_harden = estimator_to_harden, 
                            hardening = hardening, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
 
-        if estimator == 'symm':
+        if 'symm' in estimator:
             self.Al = xmask*0.+1.
         else:
             self.Al = self.A_l_custom(shape, wcs, feed_dict, f, F, 
@@ -380,7 +380,7 @@ class Estimator(object):
         def t2(ab):
             a,b = ab
             return symlens.e(qe.cross_names(a,b,f2,f2)+"_l2")
-        
+        X,Y = XY
         if hardening is not None:
             f_phi, F_phi, Fr_phi = self.get_mc_expressions(estimator_to_harden, field_names = field_names, 
 					feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
@@ -408,7 +408,8 @@ class Estimator(object):
             Fr = F
         elif 'src' in estimator:
             f = symlens.e(f'pc{estimator}_T_T_l1')*symlens.e(f'pc{estimator}_T_T_l2')
-            F = f / t1(XY) / t2(XY) / 2
+            #F = f / t1(XY) / t2(XY) / 2
+            F = f / (t1(X+X)*t2(Y+Y)+t1(XY)*t2(XY))
             fr = f
             Fr = F
         elif estimator == 'symm':

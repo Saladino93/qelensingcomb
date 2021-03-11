@@ -59,6 +59,28 @@ estimators:
                 color: green
                 label: BH
                 field_names: ['ilcA', 'ilcB']
+        symmbh:
+                nu: [ilc, ilc_depr]
+                hardening: srcsbh
+                tszprofile: ''
+                lmax_min: 2500
+                lmax_max: 4500
+                number: 5
+                direc_name: sybh
+                color: brown
+                label: SymmBH
+                field_names: ['ilc', 'ilcdepr']
+        pbh:
+                nu: ilc
+                hardening: srcpbh
+                tszprofile: 1
+                lmax_min: 3000
+                lmax_max: 4500
+                number: 4
+                direc_name: p
+                color: purple
+                label: PBH
+                field_names: ['ilcA', 'ilcB']
         symm:
                 nu: [ilc, ilc_depr]
                 hardening: ''
@@ -70,17 +92,6 @@ estimators:
                 color: orange
                 label: Symm
                 field_names: ['ilc', 'ilcdepr']
-        pbh:
-                nu: 148
-                hardening: srcpbh
-                tszprofile: 1
-                lmax_min: 3000
-                lmax_max: 4500
-                number: 4
-                direc_name: p
-                color: purple
-                label: PBH
-                field_names: ['ilcA', 'ilcB']
 
 noisekey: N
 trispectrumkey: T
@@ -104,9 +115,9 @@ sumallcrosstotalabsbiaskey: 'sum_all_crosstotalabsbias'
 sumallcrosstotalbiaskey: 'sum_all_crosstotalbias'
 
 optimisation:
-    gtol: 5000
-    fbs: [0., 0.01, 0.1, 0.5, 2, 5, 10, 100]
-    inv_variances: [0, 1]
+    gtol: 4500
+    fbs: [1.] #[0., 0.01, 0.1, 0.5, 2, 5, 10, 100]
+    inv_variances: [0]
     noiseequalsbias: [0]
     bias_source: 'total' # can be total, sum_bias, sum_abs_bias: from bias of sum of fgs at map level, sum bias, sum abs bias
 

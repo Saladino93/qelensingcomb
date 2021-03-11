@@ -150,6 +150,7 @@ for fgnamefile in fgnamefiles:
             load_nonfg_maps = True
 
             for estA, estB in estimatorcombs:
+                #print('EEEE', estA, estB)
                 nuA = estimators_dictionary[estA]['nu']
                 nuB = estimators_dictionary[estB]['nu']
                 #print(nuA, nuB)
@@ -185,8 +186,8 @@ for fgnamefile in fgnamefiles:
   
                 #MAYBE JUST ADD esttohard in yaml config
                 
-                estimator_to_harden_A = 'symm' if (estA in ['symmbh', 'symmpbh']) else estA
-                estimator_to_harden_B = 'symm' if (estB in ['symmbh', 'symmpbh']) else estB
+                estimator_to_harden_A = 'symm' if ('symm' in estA) else estimator_to_harden_A #in ['symmbh', 'symmpbh']) else estA
+                estimator_to_harden_B = 'symm' if ('symm' in estB) else estimator_to_harden_B #(estB in ['symmbh', 'symmpbh']) else estB
  
                 if i == iMin:
                     #Get shape and wcs

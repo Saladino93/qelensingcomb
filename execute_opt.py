@@ -48,6 +48,11 @@ iMin = rank*delta+start
 iMax = int(iMax)
 iMin = int(iMin)
 
+if iMax > mock_numb:
+	iMax = mock_numb
+elif (iMax >= (mock_numb - delta)) and iMax < mock_numb:
+	iMax = mock_numb
+
 optdict = data['optimisation']
 
 gtol = optdict['gtol']
@@ -61,5 +66,9 @@ for inv_ in inv_variances:
     for neb in noiseequalsbias:
         for fb in fbs:
             for i in range(iMin, iMax):
-                h, s, b = re.findall(r'\d+', all_lmaxes_directories[i])
-                os.system(f'python lmax_optimize.py {values_file} {fb} {gtol} {neb} {inv_} {h} {s} {b}')            
+                lista = re.findall(r'\d+', all_lmaxes_directories[i])
+                s = ''
+                for l in lista:
+                    s += f'{l} '
+                if len(lista) <= 4:
+                    os.system(f'python lmax_optimize.py {values_file} {fb} {gtol} {neb} {inv_} {s}')            

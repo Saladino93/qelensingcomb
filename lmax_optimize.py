@@ -37,18 +37,9 @@ my_parser.add_argument('invvariance',
                        type = int,
                        help = '0 for False, 1 for True')
 
-my_parser.add_argument('h',
-                       metavar='huok',
+my_parser.add_argument('lmaxes',
+                       nargs = '+',
                        type = int)
-
-my_parser.add_argument('s',
-                       metavar='shear',
-                       type = int)
-
-my_parser.add_argument('b',
-                       metavar='biashard',
-                       type = int)
-
 
 args = my_parser.parse_args()
 
@@ -57,10 +48,7 @@ fb = args.fb
 gtol = args.gtol
 noisebiasconstr = bool(args.noisebiasconstr)
 invvariance = bool(args.invvariance)
-h = args.h
-s = args.s
-b = args.b
-
+lmaxes = args.lmaxes
 
 if not pathlib.Path(values_file).exists():
     print('The file specified does not exist')
@@ -91,7 +79,7 @@ for e in estimators:
     elemento = estimators_dictionary[e]
     names[e] = elemento['direc_name']
 
-lmaxes_configs = [(h, s, b)]
+lmaxes_configs = [tuple(lmaxes)]
 
 #CHOOSE nu
 nu = estimators_dictionary[estimators[0]]['nu']
@@ -135,6 +123,20 @@ else:
 
 bias_source = data['optimisation']['bias_source']
 
+
+def get_est_weights(Opt, index):
+    '''
+    index = 0, 1, ....
+    e.g. h, s, b -> index = 1 gives s
+    '''
+    Nest = len(Opt.estimators)
+    nbins = Opt.nbins
+    zeros = np.zeros(Nest*nbins)
+    for j in range(nbins):
+        zeros[index+Nest*j:index+(Nest*j+1)] = 1.
+    return zeros
+
+
 for fgnamefile in [fgnamefiles[0]]:
     for lmaxes in lmaxes_configs:
         lmaxes_dict = {}
@@ -176,7 +178,24 @@ for fgnamefile in [fgnamefiles[0]]:
 
         result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}')
         result.save(Optimizerkk.biases_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases')        
+        result.save(Optimizerkk.noises_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'noises')
+        fnb_getter = lambda Opt, fb_val, invvar: Opt.get_f_n_b(Opt.ells_selected, Opt.theory_selected, Opt.theta_selected, Opt.biases_selected,
+                              sum_biases_squared = False, bias_squared = False, fb = fb_val, inv_variance = invvar)
+         
+        Nestimators = len(Optimizerkk.estimators) 
+        results_array = np.zeros((3, Nestimators+1))
+        for index in range(Nestimators):
+            x_estimator = get_est_weights(Optimizerkk, index = index)
+            f, n, b = fnb_getter(Optimizerkk, fb, True)
+            f_estimator, n_estimator, b_estimator = f(x_estimator), n(x_estimator), b(x_estimator)  
+            results_array[:, index+1] = np.array([f_estimator, n_estimator, b_estimator])
 
+        f, n, b = fnb_getter(Optimizerkk, fb, invvariance)
+        fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
+        results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
+
+        results.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens')
+        
         Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biasescross, noises)
         result = Optimizerkg.optimize(optversion, method = 'diff-ev', gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance)
 
