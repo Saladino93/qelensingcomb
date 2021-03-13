@@ -223,11 +223,9 @@ class Estimator(object):
         f, F, Fr = self.get_mc_expressions(estimator, XY = 'TT', field_names = field_names, estimator_to_harden = estimator_to_harden, 
                            hardening = hardening, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
 
-        if 'symm' in estimator:
-            self.Al = xmask*0.+1.
-        else:
-            self.Al = self.A_l_custom(shape, wcs, feed_dict, f, F, 
-                                  xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+       
+        self.Al = self.A_l_custom(shape, wcs, feed_dict, f, F, 
+                          xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
         
         self.F = F
         self.f = f
@@ -277,20 +275,8 @@ class Estimator(object):
         return self._reconstruct(feed_dict, xname = xname1, yname = xname2, F = F)
     
     
-    def reconstruct_symm(self, map1, map2):
-        recAB = self.reconstruct_other(map1, map2, self.field_names, estimator = 'hdv', F = self.F_phiA)
-        reversed_field_names = self.field_names.copy()
-        reversed_field_names.reverse()
-        recBA = self.reconstruct_other(map2, map1, reversed_field_names, estimator = 'hdv', F = self.F_phiB)
-        return self.fdict['wA']*recAB+self.fdict['wB']*recBA
-    
-    
     def reconstruct(self, map1, map2):
-        
-        if self.estimator == 'symm':
-            mappa = self.reconstruct_symm(map1, map2)
-        else:
-            mappa = self.reconstruct_other(map1, map2)
+        mappa = self.reconstruct_other(map1, map2)
         return mappa
         
 
@@ -305,49 +291,18 @@ class Estimator(object):
     def get_Nl_cross(self, Estimator2, tipo = 't'):
         feed_dict = {**self.fdict, **Estimator2.fdict}
         
-        if (self.estimator == 'symm') and (Estimator2.estimator == 'symm'):
-            N_l_cross_i_j = self.Ncoadd
-        
-        elif (self.estimator == 'symm' and Estimator2.estimator != 'symm'):
-            N_l_cross_i_j = self.get_Nl_cross_symm_with_asymm(feed_dict, self, Estimator2, tipo)   
-        
-        elif (self.estimator != 'symm' and Estimator2.estimator == 'symm'):
-            N_l_cross_i_j = self.get_Nl_cross_symm_with_asymm(feed_dict, Estimator2, self, tipo)
+        N_l_cross_i_j = self.get_Nl_cross_other(feed_dict, Estimator2, tipo = tipo)
             
-        else:
-            N_l_cross_i_j= self.get_Nl_cross_other(feed_dict, Estimator2, tipo = tipo)
-            
-    
         return N_l_cross_i_j
     
-    
-    def get_Nl_cross_symm_with_asymm(self, feed_dict, EstimatorSymm, EstimatorStd, tipo = 't'):
-        
-        NLA = self.N_l_cross_custom(EstimatorSymm.shape, EstimatorSymm.wcs, feed_dict, EstimatorSymm.XY, EstimatorStd.XY, EstimatorSymm.F_phiA, EstimatorStd.F, EstimatorStd.Fr,
-                                                xmask = EstimatorSymm.xmask*EstimatorStd.xmask, ymask = EstimatorSymm.ymask*EstimatorStd.ymask,
-                                                field_names_alpha = EstimatorSymm.field_names, field_names_beta = EstimatorStd.field_names,
-                                                falpha = EstimatorSymm.f_phiA, fbeta = EstimatorStd.f, Aalpha = EstimatorSymm.Al, Abeta = EstimatorStd.Al,
-                                                groups = self._get_groups('hdv', EstimatorStd.estimator), kmask = EstimatorSymm.kmask*EstimatorStd.kmask,
-                                                power_name = tipo)   
-
-        NLB = self.N_l_cross_custom(EstimatorSymm.shape, EstimatorSymm.wcs, feed_dict, EstimatorSymm.XY, EstimatorStd.XY, EstimatorSymm.F_phiB, EstimatorStd.F, EstimatorStd.Fr,
-                                                xmask = EstimatorSymm.xmask*EstimatorStd.xmask, ymask = EstimatorSymm.ymask*EstimatorStd.ymask,
-                                                field_names_alpha = EstimatorSymm.field_names_r, field_names_beta = EstimatorStd.field_names,
-                                                falpha = EstimatorSymm.f_phiB, fbeta = EstimatorStd.f, Aalpha = EstimatorSymm.Al, Abeta = EstimatorStd.Al,
-                                                groups = self._get_groups('hdv', EstimatorStd.estimator), kmask = EstimatorSymm.kmask*EstimatorStd.kmask,
-                                                power_name = tipo)
-        
-        result = NLA*EstimatorSymm.fdict['wA']+NLB*EstimatorSymm.fdict['wB']
-            
-        return result
     
     def get_Nl_cross_other(self, feed_dict, Estimator2, tipo = 't'):
         
         N_l_cross_i_j = self.N_l_cross_custom(self.shape, self.wcs, feed_dict, self.XY, Estimator2.XY, self.F, Estimator2.F, Estimator2.Fr,
                                                     xmask = self.xmask*Estimator2.xmask, ymask = self.ymask*Estimator2.ymask,
                                                     field_names_alpha = self.field_names, field_names_beta = Estimator2.field_names,
-                                                    falpha = self.f, fbeta = Estimator2.f, Aalpha = self.Al, Abeta = Estimator2.Al,
-                                                    groups = self._get_groups(self.estimator, Estimator2.estimator), kmask = self.kmask*Estimator2.kmask,
+                                                    falpha = None, fbeta = None, Aalpha = self.Al, Abeta = Estimator2.Al,
+                                                    groups = None, kmask = self.kmask*Estimator2.kmask,
                                                     power_name = tipo)
 
         return N_l_cross_i_j
@@ -373,45 +328,58 @@ class Estimator(object):
     
     def get_mc_expressions(self, estimator, XY = 'TT', field_names = None, estimator_to_harden = 'hu_ok', 
                            hardening = None, feed_dict = None, shape = None, wcs = None, xmask = None, ymask = None, kmask= None):
+        
         f1, f2 = field_names if field_names is not None else (None,None)
+        
         def t1(ab):
             a,b = ab
             return symlens.e(qe.cross_names(a,b,f1,f1)+"_l1")
         def t2(ab):
             a,b = ab
             return symlens.e(qe.cross_names(a,b,f2,f2)+"_l2")
+
         X,Y = XY
         if hardening is not None:
             f_phi, F_phi, Fr_phi = self.get_mc_expressions(estimator_to_harden, field_names = field_names, 
-					feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
+            feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
             f_bias, F_bias, _ = self.get_mc_expressions(hardening, field_names = field_names)
             f_bh, F_bh, Fr_bh = self.get_mc_expressions(f'{hardening}-hardened', estimator_to_harden = estimator_to_harden, field_names = field_names, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
             # 1 / Response of the biasing agent to the biasing agent
             self.fdict[f'A{hardening}_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_bias,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
             # 1 / Response of the biasing agent to CMB lensing
-            self.fdict[f'Aphi_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_bias,
+            self.fdict[f'Aphi_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_phi, #f_bias, F_phi
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-
+            self.fdict[f'Aphi_phi_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_phi,
+                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+            self.fdict[f'A{hardening}_phi_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_bias,
+                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
             f, F, Fr = f_bh, F_bh, Fr_bh
         
         elif 'hardened' in estimator:
             hardening, hardened_name = estimator.split('-')
             assert XY=="TT", "BH only implemented for TT."
-            f_phi, F_phi, _ = self.get_mc_expressions(estimator_to_harden, XY, field_names = field_names, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
-            f_src, _, _ = self.get_mc_expressions(hardening, XY, field_names = field_names)
+            f_phi, F_phi, F_phi_r = self.get_mc_expressions(estimator_to_harden, XY, field_names = field_names, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
+            f_src, F_src, F_src_r = self.get_mc_expressions(hardening, XY, field_names = field_names)
             A_src_src = symlens.e(f'A{hardening}_{hardening}_L')
             A_phi_src = symlens.e(f'Aphi_{hardening}_L')
-            f = f_phi - A_src_src / A_phi_src * f_src
-            F = f / t1(XY) / t2(XY) / 2
+            
+            #f = f_phi - A_src_src / A_phi_src * f_src
+            #F = f / t1(XY) / t2(XY) / 2
+            
+            F = F_phi - A_src_src / A_phi_src * F_src
+            Fr = F_phi_r - A_src_src / A_phi_src * F_src_r
+            f = f_phi
             fr = f
-            Fr = F
+            
         elif 'src' in estimator:
             f = symlens.e(f'pc{estimator}_T_T_l1')*symlens.e(f'pc{estimator}_T_T_l2')
-            #F = f / t1(XY) / t2(XY) / 2
-            F = f / (t1(X+X)*t2(Y+Y)+t1(XY)*t2(XY))
+            F = f / symlens.e(qe.cross_names(X,X,f1,f1)+"_l1") / symlens.e(qe.cross_names(X,X,f1,f1)+"_l2") / 2 #ASSUME FIRST LEG X IS ILC OR 148, i.e. non deproject map
             fr = f
-            Fr = F
+            Fr = f / symlens.e(qe.cross_names(X,X,f1,f1)+"_l1") / symlens.e(qe.cross_names(X,X,f1,f1)+"_l2") / 2 
+            #F = f / t1(XY) / t2(XY) / 2
+            #F = f / (t1(X+X)*t2(Y+Y)+tcross1(XY)*tcross2(XY))
+            #Fr = f / (t2(X+X)*t1(Y+Y)+t12(XY)*t12(XY))
         elif estimator == 'symm':
             
             f_phiA, F_phiA, Fr_phiA = self.get_mc_expressions('hdv', field_names = field_names)
@@ -455,8 +423,11 @@ class Estimator(object):
             
             f = f_phiA
             
-            F = symlens.e('wA')*F_phiA+symlens.e('wB')*F_phiB
-            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*Fr_phiB
+            #F = symlens.e('wA')*F_phiA+symlens.e('wB')*F_phiB
+            #Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*Fr_phiB
+            
+            F = symlens.e('wA')*F_phiA+symlens.e('wB')*Fr_phiA
+            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*F_phiA
             
             self.fdict['wA'] = wA*AA   #NOTE HERE DEFINITION OF WEIGHT
             self.fdict['wB'] = wB*AB
@@ -468,6 +439,7 @@ class Estimator(object):
         
         return f, F, Fr
     
+
     
 def getasymmweights(N_E1_E2, N_E2_E1, N_E1_E2_E2_E1):
     w_E1_E2 = N_E2_E1-N_E1_E2_E2_E1

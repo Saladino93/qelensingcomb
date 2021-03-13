@@ -128,6 +128,7 @@ C = u.Converting()
 
 lmin_A, lmin_B = 30, 30
 
+validationtag = 'val'
 
 for fgnamefile in fgnamefiles:
     for lmaxes in lmaxes_configs:
@@ -146,6 +147,7 @@ for fgnamefile in fgnamefiles:
             dictionary.create_subdictionary(primarydicttag)
             dictionary.create_subdictionary(secondarydicttag)
             dictionary.create_subdictionary(primarycrossdicttag)
+            dictionary.create_subdictionary(validationtag)
 
             load_nonfg_maps = True
 
@@ -232,7 +234,9 @@ for fgnamefile in fgnamefiles:
                 #if you still did not load the maps
                 if load_nonfg_maps:
                     cmb0_fft, cmb1_fft, fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2, kappa_fft_masked, gal_fft_map = LoadA.read_all(fgnamefile, i)			
-                
+     
+                cmb_total = cmb0_fft+cmb1_fft
+           
                 fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2 = LoadA.read_fg_only(fgnamefile, i)
                 
                 if nuA != nuB:
@@ -299,10 +303,17 @@ for fgnamefile in fgnamefiles:
                 el, partial10 = Binner.bin_maps(mapA1, mapB0, pixel_units = True)
 
                 secondary_A_B = partial01+partial10
-                
+               
                 dictionary.add_to_subdictionary(trispectrumdicttag, f'{trispectrumdicttag}-{estA}-{estB}', trispectrum_A_B)
                 dictionary.add_to_subdictionary(primarydicttag, f'{primarydicttag}-{estA}-{estB}', primary_A_B)
                 dictionary.add_to_subdictionary(secondarydicttag, f'{secondarydicttag}-{estA}-{estB}', secondary_A_B)
+
+                valtag = f'{validationtag}-estA'
+                if not dictionary.exists_in_subdictionary(validationtag, valtag):
+                    rec_cmb_map_A = A.reconstruct(cmb_total, cmb_total)
+                    #rec_cmb_map_B = B.reconstruct(cmb_total, cmb_total)
+                    el, cross_with_input = Binner.bin_maps(kappa_fft_masked, rec_cmb_map_A, pixel_units = True)
+                    dictionary.add_to_subdictionary(validationtag, valtag, cross_with_input) 
 
             #Calculate kk$
             el, clkk = Binner.bin_maps(kappa_fft_masked, pixel_units = True)
