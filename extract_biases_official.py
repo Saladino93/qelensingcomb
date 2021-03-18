@@ -130,7 +130,7 @@ lmin_A, lmin_B = 30, 30
 
 validationtag = 'val'
 
-estimatorcombs = [(e, e) for e in estimators]
+#estimatorcombs = [(e, e) for e in estimators]
 
 for fgnamefile in fgnamefiles:
     for lmaxes in lmaxes_configs:

@@ -122,9 +122,13 @@ def tfm_dict_to_matrix(estimators, dictionary, formato):
     for estA, estB in all_combs:
 
             try:
-                quantity = dictionary[formato(estA, estB)]
+                try:
+                    quantity = dictionary[formato(estA, estB)]
+                except:
+                    quantity = dictionary[formato(estB, estA)]
             except:
-                quantity = dictionary[formato(estB, estA)]
+                #print(f'Setting quantity to zero {estA}-{estB}')
+                quantity = np.zeros(len(element))
 
             indexA = estimators.index(estA)
             indexB = estimators.index(estB)
@@ -209,7 +213,11 @@ class Estimator(object):
                  lmin, lmax,
                  field_names = None, groups = None, 
                  Lmin = 20, Lmax = 6000, 
-                 hardening = None, estimator_to_harden = 'hu_ok', XY = 'TT'):
+                 hardening = None, estimator_to_harden = 'hu_ok', XY = 'TT', direc = 'presavedcalcs/'):
+
+        self.directory = pathlib.Path(direc)
+        self.lmax = lmax
+        self.lmin = lmin
 
         if hardening == '':
             hardening = None        
@@ -289,10 +297,21 @@ class Estimator(object):
         return self.Al * uqe * self.kmask
 
     def get_Nl_cross(self, Estimator2, tipo = 't'):
-        feed_dict = {**self.fdict, **Estimator2.fdict}
+        name = 'N_l_cross_i_j'
         
-        N_l_cross_i_j = self.get_Nl_cross_other(feed_dict, Estimator2, tipo = tipo)
-            
+        try:
+            if self.estimator == Estimator2.estimator:
+                N_l_cross_i_j = self.read(self.estimator, name)
+            else:
+                N_l_cross_i_j = self.read_from_double_dir(self.directory, self.lmax, self.lmin, Estimator2.lmax, Estimator2.lmin, self.estimator, Estimator2.estimator, name)#note one could also add case where they are swapped
+            print('Read noise from file')
+        except:
+            feed_dict = {**self.fdict, **Estimator2.fdict}        
+            N_l_cross_i_j = self.get_Nl_cross_other(feed_dict, Estimator2, tipo = tipo)
+            if self.estimator == Estimator2.estimator:
+                self.save(self.estimator, name, N_l_cross_i_j)
+            else:
+                self.save_to_double_dir(self.directory, self.lmax, self.lmin, Estimator2.lmax, Estimator2.lmin, self.estimator, Estimator2.estimator, name, N_l_cross_i_j) 
         return N_l_cross_i_j
     
     
@@ -345,15 +364,25 @@ class Estimator(object):
             f_bias, F_bias, _ = self.get_mc_expressions(hardening, field_names = field_names)
             f_bh, F_bh, Fr_bh = self.get_mc_expressions(f'{hardening}-hardened', estimator_to_harden = estimator_to_harden, field_names = field_names, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
             # 1 / Response of the biasing agent to the biasing agent
-            self.fdict[f'A{hardening}_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_bias,
+            try:
+                self.fdict[f'A{hardening}_{hardening}_L'] = self.read(hardening, f'A{hardening}_{hardening}_L')
+            except:
+                self.fdict[f'A{hardening}_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_bias,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-            # 1 / Response of the biasing agent to CMB lensing
-            self.fdict[f'Aphi_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_phi, #f_bias, F_phi
+                self.save(hardening, f'A{hardening}_{hardening}_L', self.fdict[f'A{hardening}_{hardening}_L'])
+
+            try:
+                self.fdict[f'Aphi_{hardening}_L'] = self.read(hardening, f'Aphi_{hardening}_L')
+            except:
+                # 1 / Response of the biasing agent to CMB lensing
+                self.fdict[f'Aphi_{hardening}_L'] = self.A_l_custom(shape, wcs, feed_dict, f_bias, F_phi, #f_bias, F_phi
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-            self.fdict[f'Aphi_phi_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_phi,
-                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-            self.fdict[f'A{hardening}_phi_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_bias,
-                                                        xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+                self.save(hardening, f'Aphi_{hardening}_L', self.fdict[f'Aphi_{hardening}_L'])
+
+            #self.fdict[f'Aphi_phi_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_phi,
+            #                                            xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
+            #self.fdict[f'A{hardening}_phi_L'] = self.A_l_custom(shape, wcs, feed_dict, f_phi, F_bias,
+            #                                            xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
             f, F, Fr = f_bh, F_bh, Fr_bh
         
         elif 'hardened' in estimator:
@@ -381,7 +410,7 @@ class Estimator(object):
             #F = f / (t1(X+X)*t2(Y+Y)+tcross1(XY)*tcross2(XY))
             #Fr = f / (t2(X+X)*t1(Y+Y)+t12(XY)*t12(XY))
         elif estimator == 'symm':
-            
+
             f_phiA, F_phiA, Fr_phiA = self.get_mc_expressions('hdv', field_names = field_names)
             
             field_names_r = field_names.copy()
@@ -394,29 +423,49 @@ class Estimator(object):
             
             self.f_phiA, self.F_phiA, self.Fr_phiA = f_phiA, F_phiA, Fr_phiA
             self.f_phiB, self.F_phiB, self.Fr_phiB = f_phiB, F_phiB, Fr_phiB
-    
-            AA = self.A_l_custom(shape, wcs, feed_dict, f_phiA, F_phiA,
+            
+            try:
+                AA = self.read(estimator, 'AA')
+            except: 
+                AA = self.A_l_custom(shape, wcs, feed_dict, f_phiA, F_phiA,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-                    
-            AB = self.A_l_custom(shape, wcs, feed_dict, f_phiB, F_phiB,
+                self.save(estimator, 'AA', AA)
+ 
+            try:
+                AB = self.read(estimator, 'AB')
+            except:
+                AB = self.A_l_custom(shape, wcs, feed_dict, f_phiB, F_phiB,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-                                    
-            NA = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiA, Fr_phiA,
+                self.save(estimator, 'AB', AB)
+
+            try:
+                NA = self.read(estimator, 'NA')
+            except:
+                NA = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiA, Fr_phiA,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names,
                                      falpha = f_phiA, fbeta = f_phiA,
                                      Aalpha = AA, Abeta = AA, groups = None, kmask = kmask)
-            
-            NB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiB, F_phiB, Fr_phiB,
+                self.save(estimator, 'NA', NA)
+
+            try:
+                NB = self.read(estimator, 'NB')
+            except:
+                NB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiB, F_phiB, Fr_phiB,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names_r, field_names_beta = field_names_r,
                                      falpha = f_phiB, fbeta = f_phiB,
                                      Aalpha = AB, Abeta = AB, groups = None, kmask = kmask)
-            
-            
-            NAB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiB, Fr_phiB,
+                self.save(estimator, 'NB', NB)
+             
+            try:
+                NAB = self.read(estimator, 'NAB')
+                print('Read NAB for symm from file')
+            except:
+                NAB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiB, Fr_phiB,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names_r,
                                      falpha = f_phiA, fbeta = f_phiB,
                                      Aalpha = AA, Abeta = AB, groups = None, kmask = kmask)
-            
+                self.save(estimator, 'NAB', NAB)
+
             wA, wB = getasymmweights(NA, NB, NAB)
             
             self.Ncoadd = getcoaddednoise(NA, NB, NAB)
@@ -438,9 +487,33 @@ class Estimator(object):
 
         
         return f, F, Fr
-    
 
+    def save_to_double_dir(self, directory, lmaxA, lminA, lmaxB, lminB, estimatorA, estimatorB, name, quantity):
+        direc = directory/f'{estimatorA}_{estimatorB}_{lmaxA}_{lminA}_{lmaxB}_{lminB}'
+        if not direc.exists():
+            direc.mkdir(parents = True, exist_ok = True)
+        np.save(direc/f'{name}', quantity)
     
+    def save_to_dir(self, directory, lmax, lmin, estimator, name, quantity):
+        direc = directory/f'{estimator}_{lmax}_{lmin}'
+        if not direc.exists():
+            direc.mkdir(parents = True, exist_ok = True)
+        np.save(direc/f'{name}', quantity)    
+    
+    def save(self, estimator, name, quantity):
+        self.save_to_dir(self.directory, self.lmax, self.lmin, estimator, name, quantity)
+
+    def read_from_double_dir(self, directory, lmaxA, lminA, lmaxB, lminB, estimatorA, estimatorB, name):
+        return np.load(directory/f'{estimatorA}_{estimatorB}_{lmaxA}_{lminA}_{lmaxB}_{lminB}'/f'{name}.npy')
+
+    def read_from_dir(self, directory, lmax, lmin, estimator, name):
+        return np.load(directory/f'{estimator}_{lmax}_{lmin}'/f'{name}.npy')
+    
+    def read(self, estimator, name, verbose = True):
+        if verbose:
+            print('Read saved')
+        return self.read_from_dir(self.directory, self.lmax, self.lmin, estimator, name)
+
 def getasymmweights(N_E1_E2, N_E2_E1, N_E1_E2_E2_E1):
     w_E1_E2 = N_E2_E1-N_E1_E2_E2_E1
     w_E2_E1 = N_E1_E2-N_E1_E2_E2_E1

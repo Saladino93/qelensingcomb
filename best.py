@@ -148,7 +148,7 @@ class Opt():
         return np.trapz(y*ells, ells)*(2*np.pi)/(2*np.pi)**2*factor
        
 
-    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True, noiseparameter = 1.):
+    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001):
         '''
         Methods: diff-ev, SLSQP
         '''
@@ -211,7 +211,8 @@ class Opt():
         self.noisef = noisef
         self.biasf = biasf
 
-        extra_constraint = lambda x: abs(self.noisef(np.array(x))-self.biasf(np.array(x)))
+        _, _, biasf_with_sign = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, self.biases_selected, sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, noiseparameter = noiseparameter)
+        extra_constraint = lambda x: abs(self.noisef(np.array(x))-abs(biasf_with_sign(np.array(x))))
 
 
         def constraint_eq(x):
@@ -230,6 +231,23 @@ class Opt():
             res = self.integerate_discrete(b, self.ells_selected)
             return 1-res
 
+
+        def get_reg(biases, theorykk, threshold = 0.001):
+            relative = biases/theorykk
+            Ne = biases.shape[0]
+            def reg(x):
+                x = np.array(x)
+                a = self.get_a(x, inv_variance).T
+                total = 0.
+                for i in range(Ne):
+                    selection = abs(relative[i, i]) < threshold
+                    total += np.sum(a[i]**2*selection)
+                return total
+            return reg
+        
+        regulariser = get_reg(self.biases_selected, self.theory_selected, threshold)
+
+    
         k = 1e20
 
         if noisebiasconstr:
@@ -253,7 +271,8 @@ class Opt():
 
         mon = VerboseMonitor(100)
 
-        func = lambda x: f(np.array(x))
+        func = lambda x: f(np.array(x))+regulariser(np.array(x)) if regularise else lambda x: f(np.array(x))
+
         result = my.diffev(func, x0, npop = 10*len(list(bnds)), bounds = bnds, ftol = 1e-11, gtol = gtol, maxiter = 1024**3, maxfun = 1024**3, constraints = constraint_eq, penalty = penalty, full_output=True, itermon=mon)
 
         result = Res(result[0], self.ells_selected)
