@@ -175,9 +175,23 @@ for lconfig in lmaxes_configs:
         np.save(P/getoutname(totalabsbiaskey), totalbias)
 
         totalbias = 0.
+        totalbiasscatter = 0.
         for tag in biasestags:
             totalbias += np.load(P/getoutname(tag))
+        total = []
+        for j in range(Nsims):
+            array = 0.
+            for tag in biasestags:
+                dictionary = dic.read(f'{fgnamefile}_{nu}_{j}')
+                array += u.get_element(dictionary[tag], estimators)
+            total += [array]
+        
+        mean, totalbiasscatter = u.get_mean_and_scatter(Nsims, total)
+        factor = np.sqrt(A/A_octanct) if oldversion else 1.
+        totalbiasscatter *= factor
+        #print(mean/totalbias)
         np.save(P/getoutname(totalbiaskey), totalbias)
+        np.save(P/f'scatter_{totalbiaskey}_{nu}.npy', totalbiasscatter)
 
     totalabsbias = 0. 
     totalbias = 0.

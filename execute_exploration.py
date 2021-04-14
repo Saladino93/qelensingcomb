@@ -31,7 +31,6 @@ with open(values_file, 'r') as stream:
 output = data['analysisdirectory']
 
 path = pathlib.Path(output)
-all_lmaxes_directories =  [x.name for x in path.iterdir() if x.is_dir()]
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -39,7 +38,18 @@ size = comm.Get_size()
 
 start = 0
 
-mock_numb = len(all_lmaxes_directories)
+all_configs = []
+all_its = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+all_scales =  [0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+
+all_crosses = [0.75, 0.85, 0.9, 0.92, 0.95, 1.0]
+
+for i in all_its:
+    for s in all_scales:
+        for c in all_crosses:
+            all_configs += [(i, s, c)]
+
+mock_numb = len(all_configs)
 delta = mock_numb/size
 
 iMax = (rank+1)*delta+start
@@ -53,6 +63,8 @@ if iMax > mock_numb:
 elif (iMax >= (mock_numb - delta)) and iMax < mock_numb:
 	iMax = mock_numb
 
+configs = all_configs[iMin:iMax]
+
 optdict = data['optimisation']
 
 gtol = optdict['gtol']
@@ -61,14 +73,6 @@ inv_variances = optdict['inv_variances']
 noiseequalsbias = optdict['noiseequalsbias']
 
 
-
-for inv_ in inv_variances:
-    for neb in noiseequalsbias:
-        for fb in fbs:
-            for i in range(iMin, iMax):
-                lista = re.findall(r'\d+', all_lmaxes_directories[i])
-                s = ''
-                for l in lista:
-                    s += f'{l} '
-                if len(lista) <= 4:
-                    os.system(f'python lmax_optimize.py {values_file} {fb} {gtol} {neb} {inv_} {s} diff-ev')            
+for item in configs:
+    iteration, scale, cross = item
+    os.system(f'python explore_diff_ev.py configurations/configILCnewreg.yaml 1.0 3500 0 0 {scale} {iteration} {cross} 4000 3500 4500 4000')

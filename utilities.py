@@ -250,6 +250,8 @@ class Estimator(object):
 
         self.XY = XY
 
+        self.name = self.estimator+self.field_names[0]+'-'+self.field_names[1]
+
     def get_masks(self, shape, wcs, xlmin, xlmax, xlx, xly,
                                     ylmin, ylmax, ylx, yly,
                                     Lmin, Lmax, Lx, Ly):
@@ -297,7 +299,7 @@ class Estimator(object):
         return self.Al * uqe * self.kmask
 
     def get_Nl_cross(self, Estimator2, tipo = 't'):
-        name = 'N_l_cross_i_j'
+        name = f'N_l_cross_{self.name}_{Estimator2.name}'
         
         try:
             if self.estimator == Estimator2.estimator:
@@ -345,7 +347,7 @@ class Estimator(object):
             Estimator2 = Estimator1
         return qe._get_groups(Estimator1, Estimator2, noise = noise)
     
-    def get_mc_expressions(self, estimator, XY = 'TT', field_names = None, estimator_to_harden = 'hu_ok', 
+    def get_mc_expressions(self, estimator, XY = 'TT', field_names = None, estimator_to_harden = 'hu_ok', symmetrised = 'hdv', 
                            hardening = None, feed_dict = None, shape = None, wcs = None, xmask = None, ymask = None, kmask= None):
         
         f1, f2 = field_names if field_names is not None else (None,None)
@@ -409,62 +411,67 @@ class Estimator(object):
             #F = f / t1(XY) / t2(XY) / 2
             #F = f / (t1(X+X)*t2(Y+Y)+tcross1(XY)*tcross2(XY))
             #Fr = f / (t2(X+X)*t1(Y+Y)+t12(XY)*t12(XY))
-        elif estimator == 'symm':
+        elif estimator == 'symm' or estimator == 'symm-shear':
 
-            f_phiA, F_phiA, Fr_phiA = self.get_mc_expressions('hdv', field_names = field_names)
+            if estimator == 'symm':
+                symmetrised = 'hdv'
+            elif estimator == 'symm-sh':
+                symmetrised = 'shear-hdv'
+
+            f_phiA, F_phiA, Fr_phiA = self.get_mc_expressions(symmetrised, field_names = field_names)
             
             field_names_r = field_names.copy()
             field_names_r.reverse()
             
             self.field_names_r = field_names_r
             
-            f_phiB, F_phiB, Fr_phiB = self.get_mc_expressions('hdv', field_names = field_names_r)
+            f_phiB, F_phiB, Fr_phiB = self.get_mc_expressions(symmetrised, field_names = field_names_r)
             
             
             self.f_phiA, self.F_phiA, self.Fr_phiA = f_phiA, F_phiA, Fr_phiA
             self.f_phiB, self.F_phiB, self.Fr_phiB = f_phiB, F_phiB, Fr_phiB
             
             try:
-                AA = self.read(estimator, 'AA')
+                AA = self.read(estimator, f'AA_{symmetrised}')
             except: 
                 AA = self.A_l_custom(shape, wcs, feed_dict, f_phiA, F_phiA,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-                self.save(estimator, 'AA', AA)
+                self.save(estimator, f'AA_{symmetrised}', AA)
  
             try:
-                AB = self.read(estimator, 'AB')
+                AB = self.read(estimator, f'AB_{symmetrised}')
             except:
                 AB = self.A_l_custom(shape, wcs, feed_dict, f_phiB, F_phiB,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-                self.save(estimator, 'AB', AB)
+                self.save(estimator, f'AB_{symmetrised}', AB)
 
             try:
-                NA = self.read(estimator, 'NA')
+                NA = self.read(estimator, f'NA_{symmetrised}')
             except:
                 NA = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiA, Fr_phiA,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names,
                                      falpha = f_phiA, fbeta = f_phiA,
                                      Aalpha = AA, Abeta = AA, groups = None, kmask = kmask)
-                self.save(estimator, 'NA', NA)
+                self.save(estimator, f'NA_{symmetrised}', NA)
 
             try:
-                NB = self.read(estimator, 'NB')
+                NB = self.read(estimator, f'NB_{symmetrised}')
             except:
                 NB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiB, F_phiB, Fr_phiB,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names_r, field_names_beta = field_names_r,
                                      falpha = f_phiB, fbeta = f_phiB,
                                      Aalpha = AB, Abeta = AB, groups = None, kmask = kmask)
-                self.save(estimator, 'NB', NB)
+                self.save(estimator, f'NB_{symmetrised}', NB)
              
             try:
-                NAB = self.read(estimator, 'NAB')
+                NAB = self.read(estimator, f'NAB_{symmetrised}')
                 print('Read NAB for symm from file')
             except:
                 NAB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiB, Fr_phiB,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names_r,
                                      falpha = f_phiA, fbeta = f_phiB,
                                      Aalpha = AA, Abeta = AB, groups = None, kmask = kmask)
-                self.save(estimator, 'NAB', NAB)
+                self.save(estimator, f'NAB_{symmetrised}', NAB)
 
             wA, wB = getasymmweights(NA, NB, NAB)
             
@@ -472,11 +479,11 @@ class Estimator(object):
             
             f = f_phiA
             
-            #F = symlens.e('wA')*F_phiA+symlens.e('wB')*F_phiB
-            #Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*Fr_phiB
+            F = symlens.e('wA')*F_phiA+symlens.e('wB')*F_phiB
+            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*Fr_phiB
             
-            F = symlens.e('wA')*F_phiA+symlens.e('wB')*Fr_phiA
-            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*F_phiA
+            #F = symlens.e('wA')*F_phiA+symlens.e('wB')*Fr_phiA
+            #Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*F_phiA
             
             self.fdict['wA'] = wA*AA   #NOTE HERE DEFINITION OF WEIGHT
             self.fdict['wB'] = wB*AB
@@ -510,9 +517,10 @@ class Estimator(object):
         return np.load(directory/f'{estimator}_{lmax}_{lmin}'/f'{name}.npy')
     
     def read(self, estimator, name, verbose = True):
+        result = self.read_from_dir(self.directory, self.lmax, self.lmin, estimator, name)
         if verbose:
             print('Read saved')
-        return self.read_from_dir(self.directory, self.lmax, self.lmin, estimator, name)
+        return result
 
 def getasymmweights(N_E1_E2, N_E2_E1, N_E1_E2_E2_E1):
     w_E1_E2 = N_E2_E1-N_E1_E2_E2_E1
