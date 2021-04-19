@@ -431,47 +431,47 @@ class Estimator(object):
             self.f_phiA, self.F_phiA, self.Fr_phiA = f_phiA, F_phiA, Fr_phiA
             self.f_phiB, self.F_phiB, self.Fr_phiB = f_phiB, F_phiB, Fr_phiB
             
-            try:
-                AA = self.read(estimator, f'AA_{symmetrised}')
-            except: 
-                AA = self.A_l_custom(shape, wcs, feed_dict, f_phiA, F_phiA,
+            #try:
+            #    AA = self.read(estimator, f'AA_{symmetrised}')
+            #except: 
+            AA = self.A_l_custom(shape, wcs, feed_dict, f_phiA, F_phiA,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-                self.save(estimator, f'AA_{symmetrised}', AA)
+            #    self.save(estimator, f'AA_{symmetrised}', AA)
  
-            try:
-                AB = self.read(estimator, f'AB_{symmetrised}')
-            except:
-                AB = self.A_l_custom(shape, wcs, feed_dict, f_phiB, F_phiB,
+            #try:
+            #    AB = self.read(estimator, f'AB_{symmetrised}')
+            #except:
+            AB = self.A_l_custom(shape, wcs, feed_dict, f_phiB, F_phiB,
                                                         xmask = xmask, ymask = ymask, groups = None, kmask = kmask)
-                self.save(estimator, f'AB_{symmetrised}', AB)
+            #    self.save(estimator, f'AB_{symmetrised}', AB)
 
-            try:
-                NA = self.read(estimator, f'NA_{symmetrised}')
-            except:
-                NA = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiA, Fr_phiA,
+            #try:
+            #    NA = self.read(estimator, f'NA_{symmetrised}')
+            #except:
+            NA = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiA, Fr_phiA,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names,
                                      falpha = f_phiA, fbeta = f_phiA,
                                      Aalpha = AA, Abeta = AA, groups = None, kmask = kmask)
-                self.save(estimator, f'NA_{symmetrised}', NA)
+            #self.save(estimator, f'NA_{symmetrised}', NA)
 
-            try:
-                NB = self.read(estimator, f'NB_{symmetrised}')
-            except:
-                NB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiB, F_phiB, Fr_phiB,
+            #try:
+            #NB = self.read(estimator, f'NB_{symmetrised}')
+            #except:
+            NB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiB, F_phiB, Fr_phiB,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names_r, field_names_beta = field_names_r,
                                      falpha = f_phiB, fbeta = f_phiB,
                                      Aalpha = AB, Abeta = AB, groups = None, kmask = kmask)
-                self.save(estimator, f'NB_{symmetrised}', NB)
+            #    self.save(estimator, f'NB_{symmetrised}', NB)
              
-            try:
-                NAB = self.read(estimator, f'NAB_{symmetrised}')
-                print('Read NAB for symm from file')
-            except:
-                NAB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiB, Fr_phiB,
+            #try:
+            #    NAB = self.read(estimator, f'NAB_{symmetrised}')
+            #    print('Read NAB for symm from file')
+            #except:
+            NAB = self.N_l_cross_custom(shape, wcs, feed_dict, XY, XY, F_phiA, F_phiB, Fr_phiB,
                                      xmask = xmask, ymask = ymask, field_names_alpha = field_names, field_names_beta = field_names_r,
                                      falpha = f_phiA, fbeta = f_phiB,
                                      Aalpha = AA, Abeta = AB, groups = None, kmask = kmask)
-                self.save(estimator, f'NAB_{symmetrised}', NAB)
+            #    self.save(estimator, f'NAB_{symmetrised}', NAB)
 
             wA, wB = getasymmweights(NA, NB, NAB)
             
@@ -482,9 +482,12 @@ class Estimator(object):
             F = symlens.e('wA')*F_phiA+symlens.e('wB')*F_phiB
             Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*Fr_phiB
             
-            #F = symlens.e('wA')*F_phiA+symlens.e('wB')*Fr_phiA
-            #Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*F_phiA
-            
+            F = symlens.e('wA')*F_phiA+symlens.e('wB')*Fr_phiA
+            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*F_phiA
+           
+            F = symlens.e('wA')*F_phiA+symlens.e('wB')*Fr_phiB #note the trick here
+            Fr = symlens.e('wA')*Fr_phiA+symlens.e('wB')*F_phiB
+ 
             self.fdict['wA'] = wA*AA   #NOTE HERE DEFINITION OF WEIGHT
             self.fdict['wB'] = wB*AB
             
@@ -600,6 +603,7 @@ class mapNamesObj():
         self.psmask = lambda x, lmax: f'ps_mask_5mJy_T_patch' 
         self.cmb0template = lambda x: 'cmb0'   
         self.cmb1template = lambda x: 'cmb1'
+        self.cmbtemplate = lambda x: 'cmb'
         self.fgtemplate =  lambda x, lmax: f'sehgal_{x}_large_cutout'
         self.fggausstemplate = lambda x, lmax: f'gaussian_sehgal_{x}_large_cutout' #f'gaussian_sehgal_{x}_{nu}_large_cutout'
         self.kappatemplate = lambda x: 'sehgal_kcmb_large_cutout'
@@ -710,7 +714,12 @@ class LoadfftedMaps():
     def read_shape(self, num = 0):
         cmb0 = self.read(self.mapsObj.cmb0template(''), num, '_', ext = '.txt')
         return cmb0.shape
-       
+
+    def read_total_cmb(self, num):
+        cmb = self.read(self.mapsObj.cmbtemplate(''), num, '_', ext = '.txt')       
+        cmb = self.changemap(cmb)
+        cmb_fft = self.getfft(cmb)
+        return cmb_fft
 
     def read_all(self, fg_name, num):
         '''

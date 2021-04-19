@@ -183,6 +183,8 @@ for fgnamefile in [fgnamefiles[0]]:
 
         
         Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises, biases_errors = biases*0.+0.01)        
+        
+        '''
         if fb > 0.:
             try:
                 fbindex = list(fblist).index(fb)
@@ -194,7 +196,9 @@ for fgnamefile in [fgnamefiles[0]]:
                 print('Calculating a solution')
                 x0mv, bs0mv, _ = Optimizerkk.get_mv_solution(numerical = True, optversion = optversion)
         else:
-            x0mv, bs0mv = None, None
+        ''' 
+   
+        x0mv, bs0mv = None, None
  
         result = Optimizerkk.optimize(optversion, x0 = x0mv, bs0 = bs0mv, method = method, gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance, regularise = regularised, regtype = regtype, filter_biases = filter_biases)
 

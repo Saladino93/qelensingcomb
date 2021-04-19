@@ -237,7 +237,7 @@ for fgnamefile in fgnamefiles:
                 if load_nonfg_maps:
                     cmb0_fft, cmb1_fft, fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2, kappa_fft_masked, gal_fft_map = LoadA.read_all(fgnamefile, i)			
      
-                cmb_total = cmb0_fft+cmb1_fft
+                cmb_total = LoadA.read_total_cmb(i) #cmb0_fft+cmb1_fft
            
                 fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2 = LoadA.read_fg_only(fgnamefile, i)
                 
