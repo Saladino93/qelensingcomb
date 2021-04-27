@@ -59,15 +59,24 @@ print(f'Estimators {estimators}')
 #CHOOSE nu
 nu = estimators_dictionary[estimators[0]]['nu']
 
+estimatorssubset = data['estimatorssubset']
+
 lista_lmaxes = []
 
 names = {}
+
+if estimatorssubset == '':
+    estimatorssubset = estimators
+else:
+    print(f'Estimators subset {estimatorssubset}')
 
 for e in estimators:
     elemento = estimators_dictionary[e]
     names[e] = elemento['direc_name']
     lmax_min, lmax_max = elemento['lmax_min'], elemento['lmax_max']
     num = elemento['number']
+    if e not in estimatorssubset:
+        num = 1
     lista_lmaxes += [np.linspace(lmax_min, lmax_max, num, dtype = int)]
 
 
@@ -78,7 +87,6 @@ else:
     lmaxes_configs = list(itertools.product(*lista_lmaxes))
 
 del estimators_dictionary
-
 
 noisetag = data['noisekey']
 trispectrumtag = data['trispectrumkey']
@@ -108,15 +116,25 @@ function = lambda x: abs(x)
 
 ndirs = 0
 
+
+
 for lconfig in lmaxes_configs:
     ndirs += 1
     lmax_directory = ''
+
+    lmax_directory_out = ''
+
     for e_index, e in enumerate(estimators):
         l = lconfig[e_index]
         lmax_directory += f'{names[e]}{l}'
-    print(lmax_directory)
 
-    PPP = PP/lmax_directory
+    for e_index, e in enumerate(estimatorssubset):
+        l = lconfig[e_index]
+        lmax_directory_out += f'{names[e]}{l}'
+
+    print('In directory', lmax_directory, 'Out directory', lmax_directory_out)
+
+    PPP = PP/lmax_directory_out
     if not PPP.exists():
         PPP.mkdir(parents = True, exist_ok = True)
 
@@ -139,7 +157,7 @@ for lconfig in lmaxes_configs:
         
             for j in range(Nsims):
                 dictionary = dic.read(f'{fgnamefile}_{nu}_{j}')
-                array = u.get_element(dictionary[k], estimators)
+                array = u.get_element(dictionary[k], estimatorssubset)
                 total += [array]
         
             total = np.array(total)

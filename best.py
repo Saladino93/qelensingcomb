@@ -13,8 +13,10 @@ import pathlib
 
 from scipy.ndimage import gaussian_filter1d
 
+import utilities as u
+
 class Opt():
-    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, estimators_to_ignore = None, biases_errors = None):
+    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, estimators_to_ignore = None, biases_errors = None, nocrosses = True):
 
         self.ells = ells
         self.theta = theta
@@ -38,16 +40,17 @@ class Opt():
         self.lmin_sel = lmin_sel
         self.lmax_sel = lmax_sel
 
-        self._select()
+        self._select(nocrosses = nocrosses)
 
-    def filter_(self, x, sigma):
+    def filter_(self, x, sigma, ells = None):
         #temporary
         bin_edges = np.logspace(np.log10(10), np.log10(4000), 15, 10.)
         bin_edges_ = bin_edges[bin_edges>self.lmin_sel]
         bin_edges_ = bin_edges_[bin_edges_<self.lmax_sel]
         deltas = bin_edges_[1:]-bin_edges_[:-1]
-
-        return self.smooth(x, self.ells_selected, deltas, par = sigma)
+        if ells is None:
+            ells = self.ells_selected
+        return self.smooth(x, ells, deltas, par = sigma)
 
     def scipy_gaussian(self, x, sigma):
         return gaussian_filter1d(x, sigma)
@@ -69,7 +72,7 @@ class Opt():
                     smoothed_vals[m, n, i] = sum(x * kernel)
         return smoothed_vals
 
-    def _select(self):
+    def _select(self, nocrosses = True):
         selected = (self.ells > self.lmin_sel) & (self.ells < self.lmax_sel)
         self.ells_selected = self.ells[selected]
 
@@ -84,6 +87,12 @@ class Opt():
 
         self.theory_selected = self.theory[selected]
         self.nbins = len(self.ells_selected)
+
+        if nocrosses:
+            identity = np.identity(self.noises_selected.shape[0])[..., None]
+            self.noises_selected *= identity
+            self.biases_selected *= identity
+            self.theta_selected = u.getcovarianceauto(self.noises_selected, self.theory_selected, fsky = 1.0)
 
 
     def _get_combined(self, ells, weights_per_l, total, theory):
@@ -209,7 +218,7 @@ class Opt():
         return np.trapz(y*ells, ells)*(2*np.pi)/(2*np.pi)**2*factor
        
 
-    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001, regtype = 'std', scale = 0.8, cross = 0.9, npopfactor = 1, ftol = 1e-12, filter_biases = False, sigma = 1.5):
+    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001, regtype = 'std', scale = 0.8, cross = 0.9, npopfactor = 1, ftol = 1e-16, filter_biases = False, sigma = 1.5):
         '''
         Methods: diff-ev, SLSQP
         '''

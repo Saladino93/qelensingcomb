@@ -238,7 +238,8 @@ for fgnamefile in fgnamefiles:
                     cmb0_fft, cmb1_fft, fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2, kappa_fft_masked, gal_fft_map = LoadA.read_all(fgnamefile, i)			
      
                 cmb_total = LoadA.read_total_cmb(i) #cmb0_fft+cmb1_fft
-           
+                cmb_gauss = LoadA.read_gauss(i) #NOTE THIS IS ONLY WITH ILC POWER                
+
                 fg_fft_masked_A1, fg_gaussian_fft_masked_A1, fg_fft_masked_A2, fg_gaussian_fft_masked_A2 = LoadA.read_fg_only(fgnamefile, i)
                 
                 if nuA != nuB:
@@ -249,14 +250,18 @@ for fgnamefile in fgnamefiles:
                 load_nonfg_maps = False
 
                 valtag = f'{validationtag}-{estA}'
-                valtagauto = f'{validationtag}-auto-{estA}'
-                if not dictionary.exists_in_subdictionary(validationtag, valtag):
+                valtagauto = f'{validationtag}-auto-{estA}-{estB}'
+                if not dictionary.exists_in_subdictionary(validationtag, valtag) or not dictionary.exists_in_subdictionary(validationtag, valtagauto):
                     rec_cmb_map_A = A.reconstruct(cmb_total, cmb_total)
+                    rec_cmb_map_gauss_A = A.reconstruct(cmb_gauss, cmb_gauss)
+                    rec_cmb_map_gauss_B = B.reconstruct(cmb_gauss, cmb_gauss)
                     #rec_cmb_map_B = B.reconstruct(cmb_total, cmb_total)
                     el, cross_with_input = Binner.bin_maps(kappa_fft_masked, rec_cmb_map_A, pixel_units = True)
                     dictionary.add_to_subdictionary(validationtag, valtag, cross_with_input) 
-                    el, cross_with_auto = Binner.bin_maps(rec_cmb_map_A, rec_cmb_map_A, pixel_units = True)
+                    el, cross_with_auto = Binner.bin_maps(rec_cmb_map_gauss_A, rec_cmb_map_gauss_B, pixel_units = True)
                     dictionary.add_to_subdictionary(validationtag, valtagauto, cross_with_auto)
+                    el, cmbpowergauss = Binner.bin_maps(cmb_gauss, cmb_gauss, pixel_units = True)
+                    dictionary.add_to_subdictionary(validationtag, 'inputcmbgauss', cmbpowergauss)
             #Calculate kk$
             el, clkk = Binner.bin_maps(kappa_fft_masked, pixel_units = True)
             #Calculate kg$

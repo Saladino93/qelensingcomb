@@ -36,6 +36,12 @@ my_parser.add_argument('invvariance',
                        metavar='inverse variance weights',
                        type = int,
                        help = '0 for False, 1 for True')
+
+my_parser.add_argument('crosses',
+                       metavar='crosses or not',
+                       type = int,
+                       help = '0 for False, 1 for True')
+
 my_parser.add_argument('lmaxes',
                        nargs = '+',
                        type = int)
@@ -51,6 +57,7 @@ fb = args.fb
 gtol = args.gtol
 noisebiasconstr = bool(args.noisebiasconstr)
 invvariance = bool(args.invvariance)
+crosses = bool(args.crosses)
 lmaxes = args.lmaxes
 method = args.method
 
@@ -75,6 +82,10 @@ fgnamefiles = data['fgnamefiles']
 estimators_dictionary = data['estimators']
 estimators = list(estimators_dictionary.keys())
 
+estimatorssubset = data['estimatorssubset']
+
+if estimatorssubset != '':
+    estimators = estimatorssubset
 
 lista_lmaxes = []
 
@@ -131,6 +142,8 @@ regtype =  data['optimisation']['regtype']
 filter_biases =  data['optimisation']['filter_biases']
 fblist = data['optimisation']['fbs']
 
+nocrosses = not(crosses)
+
 def get_est_weights(Opt, index):
     '''
     index = 0, 1, ....
@@ -182,7 +195,7 @@ for fgnamefile in [fgnamefiles[0]]:
         thetacross = np.load(P/getoutname(thetacrosskey))
 
         
-        Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises, biases_errors = biases*0.+0.01)        
+        Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises, biases_errors = biases*0.+0.01, nocrosses = nocrosses)        
         
         '''
         if fb > 0.:
@@ -202,9 +215,12 @@ for fgnamefile in [fgnamefiles[0]]:
  
         result = Optimizerkk.optimize(optversion, x0 = x0mv, bs0 = bs0mv, method = method, gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance, regularise = regularised, regtype = regtype, filter_biases = filter_biases)
 
-        result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}')
-        result.save(Optimizerkk.biases_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases')        
-        result.save(Optimizerkk.noises_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'noises')
+        
+        nocrossestag = '_nocross' if nocrosses else ''
+        
+        result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}{nocrossestag}')
+        result.save(Optimizerkk.biases_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases{nocrossestag}')        
+        result.save(Optimizerkk.noises_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'noises{nocrossestag}')
         fnb_getter = lambda Opt, fb_val, invvar: Opt.get_f_n_b(Opt.ells_selected, Opt.theory_selected, Opt.theta_selected, Opt.biases_selected,
                               sum_biases_squared = False, bias_squared = False, fb = fb_val, inv_variance = invvar)
          
@@ -220,8 +236,27 @@ for fgnamefile in [fgnamefiles[0]]:
         fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
         results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
 
-        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}')
+        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}')
+      
+
+
+ 
+        filtbiases = Optimizerkk.filter_(abs(Optimizerkk.biases_selected), sigma = 1.5)
+        Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, Optimizerkk.ells_selected, Optimizerkk.theory_selected, Optimizerkk.theta_selected, filtbiases, Optimizerkk.noises_selected, nocrosses = nocrosses) 
+        results_array = np.zeros((3, Nestimators+1))
+        for index in range(Nestimators):
+            x_estimator = get_est_weights(Optimizerkk, index = index)
+            f, n, b = fnb_getter(Optimizerkk, fb, True)
+            f_estimator, n_estimator, b_estimator = f(x_estimator), n(x_estimator), b(x_estimator)
+            results_array[:, index+1] = np.array([f_estimator, n_estimator, b_estimator])
+    
+        f, n, b = fnb_getter(Optimizerkk, fb, invvariance)
+        fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
+        results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
         
+        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}_ofoptim')    
+
+ 
         #Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biasescross, noises)
         #result = Optimizerkg.optimize(optversion, method = 'diff-ev', gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance)
 

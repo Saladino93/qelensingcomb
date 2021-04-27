@@ -8,7 +8,11 @@ import pathlib
 
 import re
 
+import numpy as np
+
 import os
+
+import itertools
 
 my_parser = argparse.ArgumentParser(description = 'Configuration file.')
 
@@ -16,10 +20,13 @@ my_parser.add_argument('Configuration',
                        metavar='configuration file',
                        type = str,
                        help = 'the path to configuration file')
+my_parser.add_argument('Crosses',
+                       type = int)
 
 args = my_parser.parse_args()
 
 values_file = args.Configuration
+crosses = args.Crosses
 
 if not pathlib.Path(values_file).exists():
     print('The file specified does not exist')
@@ -30,8 +37,30 @@ with open(values_file, 'r') as stream:
 
 output = data['analysisdirectory']
 
-path = pathlib.Path(output)
-all_lmaxes_directories =  [x.name for x in path.iterdir() if x.is_dir()]
+#path = pathlib.Path(output)
+#all_lmaxes_directories =  [x.name for x in path.iterdir() if x.is_dir()]
+
+estimatorssubset = data['estimatorssubset']
+
+estimators_dictionary = data['estimators']
+
+if estimatorssubset != '':
+    estimators = estimatorssubset
+
+
+lista_lmaxes = []
+
+for e in estimators:
+    elemento = estimators_dictionary[e]
+    lmax_min, lmax_max = elemento['lmax_min'], elemento['lmax_max']
+    num = elemento['number']
+    lista_lmaxes += [np.linspace(lmax_min, lmax_max, num, dtype = int)]   
+
+
+
+all_lmaxes_directories = list(itertools.product(*lista_lmaxes))
+
+print(len(all_lmaxes_directories))
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -66,9 +95,9 @@ for inv_ in inv_variances:
     for neb in noiseequalsbias:
         for fb in fbs:
             for i in range(iMin, iMax):
-                lista = re.findall(r'\d+', all_lmaxes_directories[i])
+                lista = all_lmaxes_directories[i] #re.findall(r'\d+', all_lmaxes_directories[i])
                 s = ''
                 for l in lista:
                     s += f'{l} '
                 if len(lista) <= 4:
-                    os.system(f'python lmax_optimize.py {values_file} {fb} {gtol} {neb} {inv_} {s} diff-ev')            
+                    os.system(f'python lmax_optimize.py {values_file} {fb} {gtol} {neb} {inv_} {crosses} {s} diff-ev')            
