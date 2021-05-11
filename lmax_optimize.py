@@ -12,6 +12,8 @@ import best
 
 import itertools
 
+import time
+
 my_parser = argparse.ArgumentParser(description = 'Configuration file.')
 
 my_parser.add_argument('Configuration',
@@ -141,8 +143,11 @@ regularised = data['optimisation']['regularised']
 regtype =  data['optimisation']['regtype']
 filter_biases =  data['optimisation']['filter_biases']
 fblist = data['optimisation']['fbs']
+analytical = data['optimisation']['analyticalwL']
 
 nocrosses = not(crosses)
+
+analyticaltag = '' if analytical else '_numerical'
 
 def get_est_weights(Opt, index):
     '''
@@ -155,7 +160,6 @@ def get_est_weights(Opt, index):
     for j in range(nbins):
         zeros[index+Nest*j:index+(Nest*j+1)] = 1.
     return zeros
-
 
 for fgnamefile in [fgnamefiles[0]]:
     for lmaxes in lmaxes_configs:
@@ -194,7 +198,8 @@ for fgnamefile in [fgnamefiles[0]]:
         theta = np.load(P/getoutname(thetakey))
         thetacross = np.load(P/getoutname(thetacrosskey))
 
-        
+        startingtime = time.time()        
+ 
         Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises, biases_errors = biases*0.+0.01, nocrosses = nocrosses)        
         
         '''
@@ -213,16 +218,16 @@ for fgnamefile in [fgnamefiles[0]]:
    
         x0mv, bs0mv = None, None
  
-        result = Optimizerkk.optimize(optversion, x0 = x0mv, bs0 = bs0mv, method = method, gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance, regularise = regularised, regtype = regtype, filter_biases = filter_biases)
+        result = Optimizerkk.optimize(optversion, x0 = x0mv, bs0 = bs0mv, method = method, gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance, analytical = analytical, regularise = regularised, regtype = regtype, filter_biases = filter_biases)
 
         
         nocrossestag = '_nocross' if nocrosses else ''
         
-        result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}{nocrossestag}')
+        result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}{nocrossestag}{analyticaltag}')
         result.save(Optimizerkk.biases_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases{nocrossestag}')        
         result.save(Optimizerkk.noises_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'noises{nocrossestag}')
         fnb_getter = lambda Opt, fb_val, invvar: Opt.get_f_n_b(Opt.ells_selected, Opt.theory_selected, Opt.theta_selected, Opt.biases_selected,
-                              sum_biases_squared = False, bias_squared = False, fb = fb_val, inv_variance = invvar)
+                              sum_biases_squared = False, bias_squared = False, fb = fb_val, inv_variance = invvar, analytical = analytical)
          
         Nestimators = len(Optimizerkk.estimators) 
         results_array = np.zeros((3, Nestimators+1))
@@ -236,7 +241,7 @@ for fgnamefile in [fgnamefiles[0]]:
         fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
         results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
 
-        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}')
+        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}{analyticaltag}')
       
 
 
@@ -254,8 +259,11 @@ for fgnamefile in [fgnamefiles[0]]:
         fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
         results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
         
-        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}_ofoptim')    
+        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}{analyticaltag}_ofoptim')    
 
+        end_time = time.time()-startingtime
+        analyticalname = 'analytical' if analytical else 'no analytical'
+        print(f'Time with {analyticalname} is {end_time}')
  
         #Optimizerkg = best.Opt(estimators, lmin_sel, lmax_sel, ells, kg, thetacross, biasescross, noises)
         #result = Optimizerkg.optimize(optversion, method = 'diff-ev', gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance)

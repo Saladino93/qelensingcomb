@@ -16,7 +16,7 @@ from scipy.ndimage import gaussian_filter1d
 import utilities as u
 
 class Opt():
-    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, estimators_to_ignore = None, biases_errors = None, nocrosses = True):
+    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, estimators_to_ignore = None, biases_errors = None, nocrosses = False):
 
         self.ells = ells
         self.theta = theta
@@ -94,6 +94,15 @@ class Opt():
             self.biases_selected *= identity
             self.theta_selected = u.getcovarianceauto(self.noises_selected, self.theory_selected, fsky = 1.0)
 
+        self.noises_swapped = np.swapaxes(self.noises_selected, 2, 0)
+        
+
+    def get_mv_solution_pre_mode_analytical(self):
+        k = self.Ne
+        e = np.ones(k)
+        ris = np.linalg.inv(self.noises_swapped).dot(e)
+        ris /= np.einsum('...i, i -> ...', ris, e)[:, None]
+        return 0        
 
     def _get_combined(self, ells, weights_per_l, total, theory):
         z = weights_per_l*total/theory
@@ -117,7 +126,7 @@ class Opt():
             return self.get_mv_solution_analytical()
         else:
             result = self.optimize(optversion, method = 'diff-ev', gtol = 200, bounds = [0., 1.], noisebiasconstr = False, fb = 0., inv_variance = True, regularise = False)
-            a = self.get_a(result.x, True)
+            a = self.get_a(result.x, True, analytical = False)
             combinedtheta = self.get_variance_part(a, self.theta_selected)
             weights_l = self.get_mv_weights(self.ells_selected, self.theory_selected, combinedtheta)
             weights = result.x
@@ -140,10 +149,10 @@ class Opt():
             variance_part = np.einsum('...i, ...j, ij...->...', a, a, theta)
         return variance_part
 
-    def get_final_variance_weights(self, x, ells, theory, theta, inv_variance):
-        a = self.get_a(x, inv_variance)
+    def get_final_variance_weights(self, x, ells, theory, theta, inv_variance, analytical, fb):
+        a = self.get_a(x, inv_variance, analytical)
         variance = self.get_variance_part(a, theta)
-        return self.get_weight_per_l(x, ells, theory, variance, inv_variance)
+        return self.get_weight_per_l(x, ells, theory, variance, inv_variance, analytical, fb)
 
     def get_bias_part(self, a, bias):
         if bias.ndim > 2:
@@ -166,24 +175,74 @@ class Opt():
         return biasterm
 
 
-    def get_a(self, x, inv_variance):
-        a = x[:-self.nbins].reshape(self.nbins, self.lenestimators) if not inv_variance else x.reshape(self.nbins, self.lenestimators)
+    def get_a(self, x, inv_variance, analytical):
+        a = x[:-self.nbins].reshape(self.nbins, self.lenestimators) if not (inv_variance or analytical) else x.reshape(self.nbins, self.lenestimators)
         return a
 
-    def get_weight_per_l(self, x, ells, theory, variance_part, inv_variance):
+    def get_weight_per_l(self, x, ells, theory, variance_part, inv_variance, analytical = False, fb = 1.):
         if inv_variance:
             weight_per_l = self.get_mv_weights(ells, theory, variance_part)
+        elif analytical:
+            weight_per_l = self.get_weight_per_l_analytical(x, inv_variance, fb = fb)
         else:
             weight_per_l = x[-self.nbins:]
         return weight_per_l
 
-    def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False, noiseparameter = 1.):
+    def get_weight_per_l_analytical_internal(self, x, invvariance, selection, fb):
+    
+        a = self.get_a(x, invvariance, analytical = True)
+    
+        combinedb = self.get_bias_part(a, self.biases_selected)
+        combinedtheta = self.get_variance_part(a, self.theta_selected)
+
+        kk = self.theory_selected
+        
+        integrandkk = kk**2/combinedtheta
+        integrand = combinedb*kk/combinedtheta
+        integrandbb = combinedb**2/combinedtheta
+        factor = self.integerate_discrete(integrand*selection, self.ells_selected)
+        factorkk = self.integerate_discrete(integrandkk*selection, self.ells_selected)
+        factorbb = self.integerate_discrete(integrandbb*selection, self.ells_selected)
+
+        part = fb*factor**2/(1+fb*factor)
+
+        mvsolunnorm = kk**2/combinedtheta
+
+        X = factor/factorkk
+        Y = factor
+        Z = factorbb
+        mvsol = mvsolunnorm/factorkk
+
+        bcalculated = X/(1+fb*Z-fb*X*Y)
+        result__ = mvsol*(1+fb*bcalculated*Y)-fb*bcalculated*integrand
+        #print(result__) 
+        return result__
+
+    def get_weight_per_l_analytical(self, x, invvariance, fb = 1.):
+        
+        selection = (self.ells_selected >= self.lmin_sel) & (self.ells_selected <= self.lmax_sel)
+        result__ = self.get_weight_per_l_analytical_internal(x, invvariance, selection, fb)
+    
+        while not(np.all(result__>=0)):
+    
+            selection = np.where(result__>0)
+            selectionnot = result__>0
+        
+            result__ = self.get_weight_per_l_analytical_internal(x, invvariance, selectionnot, fb)
+        
+            result__ *= selectionnot
+        
+        return result__
+
+
+
+    def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False, noiseparameter = 1., analytical = True):
         
         def f(x):
-            a = self.get_a(x, inv_variance)
+            a = self.get_a(x, inv_variance, analytical)
             variance_part = self.get_variance_part(a, theta)
 
-            weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance)
+            weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance, analytical, fb)
 
             total_result = 0.
 
@@ -196,17 +255,17 @@ class Opt():
 
 
         def noisef(x):
-            a = self.get_a(x, inv_variance)
+            a = self.get_a(x, inv_variance, analytical)
             variance_part = self.get_variance_part(a, theta)
-            weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance)
+            weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance, analytical, fb)
             squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.)
             noiseterm = np.sqrt(squarednoiseterm)
             return noiseterm
 
         def biasf(x):
-            a = self.get_a(x, inv_variance)
+            a = self.get_a(x, inv_variance, analytical)
             variance_part = self.get_variance_part(a, theta)
-            weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance)
+            weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance, analytical, fb)
             biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)
             return biasterm
 
@@ -218,7 +277,7 @@ class Opt():
         return np.trapz(y*ells, ells)*(2*np.pi)/(2*np.pi)**2*factor
        
 
-    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001, regtype = 'std', scale = 0.8, cross = 0.9, npopfactor = 1, ftol = 1e-16, filter_biases = False, sigma = 1.5):
+    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, analytical = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001, regtype = 'std', scale = 0.8, cross = 0.9, npopfactor = 1, ftol = 1e-16, filter_biases = False, sigma = 1.5):
         '''
         Methods: diff-ev, SLSQP
         '''
@@ -247,11 +306,13 @@ class Opt():
             norma = self.integerate_discrete(bs0, self.ells_selected)
             bs0 /= norma
         
-        dims = (self.lenestimators+1) if not inv_variance else self.lenestimators
+        
+        dims = (self.lenestimators+1) if not (inv_variance or analytical) else self.lenestimators
+        
         bnds = [(bounds[0], bounds[1]) for i in range(dims*self.nbins)]
         bnds = tuple(bnds)
 
-        if inv_variance:
+        if inv_variance or analytical:
             x0 = x0
         else:
             x0 = np.append(x0, bs0)
@@ -278,22 +339,22 @@ class Opt():
         else:
             prepare = lambda x: x
 
-        f, noisef, biasf = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, noiseparameter = noiseparameter)
+        f, noisef, biasf = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, analytical = analytical, noiseparameter = noiseparameter)
         self.f = f
         self.noisef = noisef
         self.biasf = biasf
 
-        _, _, biasf_with_sign = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, self.biases_selected, sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, noiseparameter = noiseparameter)
+        _, _, biasf_with_sign = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, self.biases_selected, sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, analytical = analytical, noiseparameter = noiseparameter)
         extra_constraint = lambda x: abs(self.noisef(np.array(x))-abs(biasf_with_sign(np.array(x))))
 
         if self.biases_errors_selected is not None:
-            _, _, biasf_error = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, self.biases_errors_selected, sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, noiseparameter = noiseparameter)
+            _, _, biasf_error = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, self.biases_errors_selected, sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, analytical = analytical, noiseparameter = noiseparameter)
 
         def constraint_eq(x):
             x = np.array(x)
-            a = self.get_a(x, inv_variance)
+            a = self.get_a(x, inv_variance, analytical)
             a[:, -1] = 1-np.sum(a[:, :-1], axis = 1)
-            if not inv_variance:
+            if not (inv_variance or analytical):
                 x[:-self.nbins] = a.flatten()
             else:
                 x = a.flatten()
@@ -329,7 +390,7 @@ class Opt():
                     return regel(ai, selection, regtype = 'std')+loop_over(ai)*lambda_value
             def reg_with_weights(x):
                 x = np.array(x)
-                a = self.get_a(x, inv_variance).T
+                a = self.get_a(x, inv_variance, analytical).T
                 total = 0.
                 for i in range(Ne):
                     selection = abs(relative[i, i]) < threshold
@@ -363,7 +424,7 @@ class Opt():
             def penalty(x):
                 return 0.0       
 
-        if inv_variance:
+        if inv_variance or analytical:
             penalty = None 
             if noisebiasconstr:
                 @quadratic_equality(condition=extra_constraint, k = k)
@@ -396,8 +457,8 @@ class Opt():
         result = Res(result[0], self.ells_selected, history)
         self.result = result
          
-        ws = self.get_weights(result.x, inv_variance, verbose = verbose)        
-        weights_per_l = self.get_final_variance_weights(result.x, self.ells_selected, self.theory_selected, self.theta_selected, inv_variance)
+        ws = self.get_weights(result.x, inv_variance, analytical, verbose = verbose)        
+        weights_per_l = self.get_final_variance_weights(result.x, self.ells_selected, self.theory_selected, self.theta_selected, inv_variance, analytical, fb)
 
         result.set_weights(tuple(list(ws)+[weights_per_l]))
         
@@ -405,9 +466,9 @@ class Opt():
         
         return result
        
-    def get_weights(self, x, inv_variance, verbose = True):
+    def get_weights(self, x, inv_variance, analytical, verbose = True):
 
-        aa = self.get_a(x, inv_variance)
+        aa = self.get_a(x, inv_variance, analytical)
         if verbose:
             print('Weights in columns', aa)
             print('Sum', np.sum(aa, axis = 1))

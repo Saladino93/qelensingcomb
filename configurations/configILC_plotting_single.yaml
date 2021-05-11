@@ -1,0 +1,99 @@
+sims_directory: '../extract_sehgal/manusmaps/flat_maps_large/newmaps11022021/ilc/'
+savingdirectory: 'output_biases_ILC_plotting/'
+
+analysisdirectory: 'output_ILC_plotting/'
+plotsdirectory: 'plots_ILC_plotting/'
+resultsdirectory: 'resultssumfg_ILC_1503/'
+#ells, ctt, ctt_lensed, detectnoise, fftot, fg, ftSZ
+spectra_path: 'input_spectra/'
+
+lmaxes_configs_input_to_try: [[3500, 3500, 3500, 3500, 3500, 3500]]
+
+Nsims: 80
+oldversion: True
+
+optversion: {'weights_name': 'absbias', 'sum_biases_squared': False, 'abs_biases': True, 'bias_squared': False,
+                      'color': 'purple', 'latexformula': '\sigma^2(\hat{A}_{\rm{comb}})+\left(\int_{\vec{L}}\vec{a}^TB\vec{a}\right)^2'}
+
+
+Lmin: 10
+Lmax: 6000
+
+logmode: True
+nlogBins: 15
+deltalplot: 100
+
+lmin_sel: 30
+lmax_sel: 1200
+
+fgnamefiles: ['cib', 'tsz', 'ksz', 'radiops', 'total']
+
+
+#if number of configs is 120
+#if size of srun is size, then size/Nsims number of groups
+#then you make sure each sims gets 1
+#you want size to be multiple of 80 and 120
+#e.g. size = 240, 480, 960,...
+##lmax_min, lmax_max, are for the available configs
+estimators:
+       hu_ok:
+                nu: ilc
+                hardening: ''
+                tszprofile: ''
+                lmax_min: 3000
+                lmax_max: 4500
+                number: 4
+                direc_name: h
+                color: blue
+                label: QE
+                field_names: ['ilcA', 'ilcB']
+       symm:
+                nu: [ilc, ilc_depr]
+                hardening: ''
+                tszprofile: ''
+                lmax_min: 2500
+                lmax_max: 4500
+                number: 5
+                direc_name: sy
+                color: orange
+                label: Symm
+                field_names: ['ilc', 'ilcdepr']
+       symmbh:
+                nu: [ilc, ilc_depr]
+                hardening: srcsbh
+                tszprofile: ''
+                lmax_min: 2500
+                lmax_max: 4500
+                number: 5
+                direc_name: sybh
+                color: brown
+                label: SymmBH
+                field_names: ['ilc', 'ilcdepr']
+noisekey: N
+trispectrumkey: T
+primarykey: P
+secondarykey: S
+primarycrosskey: PC
+
+kkkey: 'kk'
+kgkey: 'kg'
+ggkey: 'gg'
+ellskey: 'ells'
+thetakey: 'theta'
+thetacrosskey: 'thetacross'
+
+totalabsbiaskey: 'totalabsbias'
+totalbiaskey: 'totalbias'
+
+sumalltotalabsbiaskey: 'sum_all_totalabsbias'
+sumalltotalbiaskey: 'sum_all_totalbias'
+sumallcrosstotalabsbiaskey: 'sum_all_crosstotalabsbias'
+sumallcrosstotalbiaskey: 'sum_all_crosstotalbias'
+
+optimisation:
+    gtol: 10000
+    fbs: [1.] #[1., 0.01, 0.03, 0.05, 0.1, 0.5, 2, 5, 10, 100, 0.]
+    inv_variances: [0, 1]
+    noiseequalsbias: [0]
+    bias_source: 'total' # can be total, sum_bias, sum_abs_bias: from bias of sum of fgs at map level, sum bias, sum abs bias
+
