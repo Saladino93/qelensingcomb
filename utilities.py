@@ -82,6 +82,20 @@ def getcovarianceauto(noises, theorykk, fsky = 1.0):
                     
     return theta_ijmn
 
+
+def getcovarianceauto1D(noise, theorykk, fsky = 1.0):
+
+    theta_ijmn = np.zeros_like(noise)
+    cim = noise+theorykk
+    cjn = noise+theorykk
+    cin = noise+theorykk
+    cjm = noise+theorykk
+
+    theta_ijmn = getCov_ij_mn(cim = cim, cjn = cjn, cin = cin, cjm = cjm,
+                              l = None, deltal = None, fsky = fsky, divide_deltal = False)
+
+    return theta_ijmn
+
 def getcovariancecross(noises, kk, kg, gg):
 
     N = noises.shape[0]
@@ -228,7 +242,7 @@ class Estimator(object):
 
         self.fdict = feed_dict
            
-        f, F, Fr = self.get_mc_expressions(estimator, XY = 'TT', field_names = field_names, estimator_to_harden = estimator_to_harden, 
+        f, F, Fr = self.get_mc_expressions(estimator, XY = XY, field_names = field_names, estimator_to_harden = estimator_to_harden, 
                            hardening = hardening, feed_dict = feed_dict, shape = shape, wcs = wcs, xmask = xmask, ymask = ymask, kmask = kmask)
 
        
@@ -562,13 +576,21 @@ def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, mod
     
     ctt = load_spectra('uCMB', 'uCMB')
     ctt_lensed = load_spectra('lCMB', 'lCMB')
+   
+    cte = load_spectra('CMBTE', 'CMBTE')
+    cee = load_spectra('CMBEE', 'CMBEE')
+    cbb = load_spectra('CMBBB', 'CMBBB') 
     
     logTT = np.log(ctt)
 
     theory2dps_lensed_CMB = interpolate(ells, ctt_lensed, modlmap)
     theory2dps_unlensed_CMB = interpolate(ells, ctt, modlmap)
     grad_theory2dps_unlensed_CMB = interpolate(ells, np.gradient(logTT, np.log(ells)), modlmap)
-    
+   
+    theory2dps_CMB_TE = interpolate(ells, cte, modlmap)
+    theory2dps_CMB_EE = interpolate(ells, cee, modlmap)
+    theory2dps_CMB_EB = interpolate(ells, cbb, modlmap)
+
     #total2dB = interpolate(ells, fftotB, modlmap)
     #total2dAB = interpolate(ells, fftotAB, modlmap)
     
@@ -576,6 +598,10 @@ def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, mod
     
     feed_dict['uC_T_T'] = theory2dps_unlensed_CMB
     feed_dict['duC_T_T'] = grad_theory2dps_unlensed_CMB
+
+    feed_dict['uC_T_E'] = theory2dps_CMB_TE
+    feed_dict['uC_E_E'] = theory2dps_CMB_EE
+    feed_dict['uC_E_B'] = theory2dps_CMB_EB
 
     hardeningA = None if (hardeningA == '') else hardeningA
     hardeningB = None if (hardeningB == '') else hardeningB
@@ -591,7 +617,12 @@ def Loadfeed_dict_function(ells, load_spectra, field_names_A, field_names_B, mod
         strB = f'_{B}' if B != '' else ''
          
         feed_dict[f'tC{strA}_T{strB}_T'] = interpolate(ells, load_spectra(A, B), modlmap)
+
+        feed_dict[f'tC{strA}_T{strB}_E'] = interpolate(ells, cte, modlmap)
+        feed_dict[f'tC{strA}_E{strB}_T'] = interpolate(ells, cte, modlmap)
     
+        feed_dict[f'tC{strA}_E{strB}_E'] = 2*feed_dict[f'tC{strA}_T{strB}_T']#NOTE: JUST TEMPORARY
+        feed_dict[f'tC{strA}_B{strB}_B'] = 2*feed_dict[f'tC{strA}_T{strB}_T']#NOTE: JUST TEMPORARY
     return feed_dict
 
 
@@ -622,19 +653,47 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap, hardeningA =
         ilccase = True
 
     ell, clunlen, cllen, _, ftot, _, _ = np.loadtxt(directory/'spectra_lensqest_un_len_detectnoise_fftot_fg_ftSZ.txt', unpack = True)
+
+    ell, clte, clee, clbb = np.loadtxt(directory/'pols.txt', unpack = True)   
+ 
+    #el, ilcpower = np.loadtxt(directory/'power_ilc.txt', unpack = True)
+
+    #el, crossilcpower = np.loadtxt(directory/'crosspower_ilc_totaldepr.txt', unpack = True) #tsz depr, total just a name for sum of maps
+
+    #el, deprilcpower = np.loadtxt(directory/'power_ilc_totaldepr.txt', unpack = True)
+
+
+    #el, deprilcpowercib = np.loadtxt(directory/'power_ilc_totaldepr_cib.txt', unpack = True)
+    #el, crossilcpowercib = np.loadtxt(directory/'crosspower_ilc_totaldepr_cib.txt', unpack = True)
+    #el, crossilcpowertszcib = np.loadtxt(directory/'crosspower_ilc_total_depr_tsz_depr_cib.txt', unpack = True)
     
-    el, ilcpower = np.loadtxt(directory/'power_ilc.txt', unpack = True)
+    lista = ['ilc', 'ilcdepr', 'ilcdeprcib', 'ilcA', 'ilcB']
 
-    el, crossilcpower = np.loadtxt(directory/'crosspower_ilc_tszdepr.txt', unpack = True)
-
-    el, deprilcpower = np.loadtxt(directory/'power_ilc_tszdepr.txt', unpack = True)
+    def getp(l1, l2):
+        try:
+            el, result = np.loadtxt(directory/f'power_{l1}_{l2}.txt', unpack = True)
+        except:
+            el, result = np.loadtxt(directory/f'power_{l2}_{l1}.txt', unpack = True)
+        return el, result
  
     if ilccase:
         dictionary = {}
+
+        for l1 in lista:
+            for l2 in lista:
+                el, elemento = getp(l1, l2)
+                dictionary[l1+l2] = elemento
+  
+        ''' 
         dictionary['ilcilc'] = ilcpower
         dictionary['ilcdeprilcdepr'] = deprilcpower
         dictionary['ilcilcdepr'] = crossilcpower
         dictionary['ilcdeprilc'] = crossilcpower
+        dictionary[''] =
+        dictionary[''] =
+        dictionary[''] =
+        dictionary[''] = 
+        
 
         dictionary['ilcAilcA'] = ilcpower
         dictionary['ilcAilcB'] = ilcpower
@@ -649,6 +708,7 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap, hardeningA =
         dictionary['ilcdeprilcB'] = crossilcpower
         dictionary['ilcAilcdepr'] = crossilcpower
         dictionary['ilcBilcdepr'] = crossilcpower
+        '''
 
         dictionary['uCMBuCMB'] = np.interp(el, ell, clunlen)
         dictionary['lCMBlCMB'] = np.interp(el, ell, cllen)
@@ -659,7 +719,12 @@ def Loadfeed_dict(directory, field_names_A, field_names_B, modlmap, hardeningA =
         dictionary['lCMBlCMB'] = np.interp(el, ell, cllen)
         for A, B in list(itertools.product(field_names_A, field_names_B)): #zip(field_names_A, field_names_B):
             dictionary[f'{A}{B}'] = np.interp(el, ell, ftot)
-    
+   
+    dictionary['CMBTECMBTE'] = np.interp(el, ell, clte)
+    dictionary['CMBEECMBEE'] = np.interp(el, ell, clee)
+    dictionary['CMBBBCMBBB'] = np.interp(el, ell, clbb)
+    #dictionary['CMBTBCMBTB'] = np.interp(el, ell, cltb) 
+
     filetxt = directory/'tszProfile.txt'
     dictionary['profileprofile'] = loadtszprofile(filetxt, modlmap)
     load_spectra = load_load_spectra(dictionary)

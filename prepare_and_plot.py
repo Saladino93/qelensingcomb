@@ -12,6 +12,8 @@ import numpy as np
 
 import itertools
 
+from mpi4py import MPI
+
 #Read info
 
 my_parser = argparse.ArgumentParser(description = 'Configuration file.')
@@ -81,10 +83,40 @@ for e in estimators:
 
 
 lmaxes_configs_input = data['lmaxes_configs_input_to_try']
-if len(lmaxes_configs_input) > 0:
-    lmaxes_configs = lmaxes_configs_input
+if lmaxes_configs_input:
+    lmaxes_configs = [tuple([l for e in estimators]) for l in lista_lmaxes[0]]
 else:
     lmaxes_configs = list(itertools.product(*lista_lmaxes))
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+
+mock_numb = len(lmaxes_configs)
+delta = mock_numb/size
+start = 0
+iStop = mock_numb
+
+rank_ass = rank
+
+iMax = (rank_ass+1)*delta+start
+iMin = rank_ass*delta+start
+
+iMax = int(iMax)
+iMin = int(iMin)
+
+if iMax > iStop:
+	iMax = iStop
+elif (iMax > (iStop - delta)) and iMax <iStop:
+	iMax = iStop
+
+if size == 1:
+    iMin = 0
+    iMax = iStop
+
+lmaxes_configs = lmaxes_configs[iMin:iMax] 
+
+
 
 del estimators_dictionary
 
@@ -116,6 +148,78 @@ function = lambda x: abs(x)
 
 ndirs = 0
 
+#given an lmax_directory, creates all the necessary dictionaries
+noisedicttag = data['noisekey']
+trispectrumdicttag = data['trispectrumkey']
+primarydicttag = data['primarykey']
+secondarydicttag = data['secondarykey']
+primarycrossdicttag = data['primarycrosskey']
+
+validationtag = 'val'
+
+kkkey = data['kkkey']
+kgkey = data['kgkey']
+ggkey = data['ggkey']
+ellskey = data['ellskey']
+
+savingdirectory = data['savingdirectory']
+spectra_path = data['spectra_path']
+sims_directory = data['sims_directory']
+
+def get_dict_element(i, nu, fgnamefile, estA, lmaxA, estB, lmaxB):
+    temp_directory = names[estA]+str(lmaxA)+names[estB]+str(lmaxB)
+    dic = u.dictionary(pathlib.Path(savingdirectory)/'all'/fgnamefile, temp_directory) #NOTE: add fgnamefile
+    dic = dic.read(f'{fgnamefile}_{nu}_{i}')
+    return dic
+
+def save_dict(fgnamefile, nu, estimators, lconfig):
+    noisetemp = {} 
+    for i in range(Nsims):
+            dictionary = u.dictionary(pathlib.Path(savingdirectory), lmax_directory)
+            dictionary.create_subdictionary(noisedicttag)
+            dictionary.create_subdictionary(trispectrumdicttag)
+            dictionary.create_subdictionary(primarydicttag)
+            dictionary.create_subdictionary(secondarydicttag)
+            dictionary.create_subdictionary(primarycrossdicttag)
+            dictionary.create_subdictionary(validationtag)
+             
+            estimatorcombs = list(itertools.combinations_with_replacement(list(estimators), 2))
+            if lmaxes_configs_input:
+                estimatorcombs = [(e, e) for e in estimators]
+            for estA, estB in estimatorcombs:
+                lmaxA, lmaxB = lconfig[estimators.index(estA)], lconfig[estimators.index(estB)]
+                dic = get_dict_element(i, nu, fgnamefile, estA, lmaxA, estB, lmaxB) 
+                tag_gal = f'{primarycrossdicttag}-{estA}'
+                if not dictionary.exists_in_subdictionary(primarycrossdicttag, tag_gal): 
+                    dictionary.add_to_subdictionary(primarycrossdicttag, tag_gal, dic[primarycrossdicttag][tag_gal])
+                
+                tag = f'{trispectrumdicttag}-{estA}-{estB}'
+                dictionary.add_to_subdictionary(trispectrumdicttag, tag, dic[trispectrumdicttag][tag])
+                tag = f'{primarydicttag}-{estA}-{estB}'
+                dictionary.add_to_subdictionary(primarydicttag, tag, dic[primarydicttag][tag])
+                tag = f'{secondarydicttag}-{estA}-{estB}'
+                dictionary.add_to_subdictionary(secondarydicttag, tag, dic[secondarydicttag][tag])
+
+                tag = f'{noisedicttag}-{estA}-{estB}'
+                if i == 0:
+                    elemento = dic[noisedicttag][tag]
+                    noisetemp[tag] = elemento
+                else:
+                    elemento = noisetemp[tag]
+                    
+                dictionary.add_to_subdictionary(noisedicttag, tag, elemento)
+
+                valtag = f'{validationtag}-{estA}'
+                if not dictionary.exists_in_subdictionary(validationtag, valtag):
+                    dictionary.add_to_subdictionary(validationtag, valtag, dic[validationtag][valtag])
+            
+            dictionary.add(ggkey, dic[ggkey])
+            dictionary.add(kkkey, dic[kkkey])
+            dictionary.add(kgkey, dic[kgkey])
+            dictionary.add(ellskey, dic[ellskey])
+
+            dictionary.save(f'{fgnamefile}_{nu}_{i}')
+
 
 
 for lconfig in lmaxes_configs:
@@ -123,6 +227,8 @@ for lconfig in lmaxes_configs:
     lmax_directory = ''
 
     lmax_directory_out = ''
+
+
 
     for e_index, e in enumerate(estimators):
         l = lconfig[e_index]
@@ -139,6 +245,9 @@ for lconfig in lmaxes_configs:
         PPP.mkdir(parents = True, exist_ok = True)
 
     for fgnamefile in fgnamefiles:
+        
+        #first, process
+        save_dict(fgnamefile, nu, estimators, lconfig)
         
         P = PPP/fgnamefile
         

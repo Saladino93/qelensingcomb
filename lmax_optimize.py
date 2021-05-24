@@ -199,8 +199,25 @@ for fgnamefile in [fgnamefiles[0]]:
         thetacross = np.load(P/getoutname(thetacrosskey))
 
         startingtime = time.time()        
+        
+        biaspol = []
+        noisepol = []
+        for p in ['TE', 'EE', 'EB']:
+            elpol, npol = np.loadtxt(f'polweights/{p}_4000.txt', unpack = True)
+            noisepol += [np.interp(ells, elpol, npol)]
+            biaspol = np.load(P/'total'/getoutname2(primarytag))
+        
+        noisepol = np.array(noisepol)
+        print(noisepol.shape)        
+        
+        usepol = False
+        usepoltag = '_pol'
+        if not usepol:
+            biaspol = None
+            noisepol = None
+            usepoltag = ''
  
-        Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises, biases_errors = biases*0.+0.01, nocrosses = nocrosses)        
+        Optimizerkk = best.Opt(estimators, lmin_sel, lmax_sel, ells, kk, theta, biases, noises, noisepol = noisepol, biaspol = biaspol, biases_errors = biases*0.+0.01, nocrosses = nocrosses)        
         
         '''
         if fb > 0.:
@@ -217,15 +234,15 @@ for fgnamefile in [fgnamefiles[0]]:
         ''' 
    
         x0mv, bs0mv = None, None
- 
-        result = Optimizerkk.optimize(optversion, x0 = x0mv, bs0 = bs0mv, method = method, gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance, analytical = analytical, regularise = regularised, regtype = regtype, filter_biases = filter_biases)
+         
+        result = Optimizerkk.optimize(optversion, x0 = x0mv, bs0 = bs0mv, method = method, gtol = gtol, bounds = [0., 1.], noisebiasconstr = noisebiasconstr, fb = fb, inv_variance = invvariance, analytical = analytical, regularise = regularised, regtype = regtype, filter_biases = filter_biases, usepol = usepol)
 
         
         nocrossestag = '_nocross' if nocrosses else ''
         
-        result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}{nocrossestag}{analyticaltag}')
-        result.save(Optimizerkk.biases_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases{nocrossestag}')        
-        result.save(Optimizerkk.noises_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'noises{nocrossestag}')
+        result.save_all(pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'auto_fb_{fb}{nocrossestag}{analyticaltag}{usepoltag}')
+        result.save(Optimizerkk.biases_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'biases{nocrossestag}{usepoltag}')        
+        result.save(Optimizerkk.noises_selected, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'noises{nocrossestag}{usepoltag}')
         fnb_getter = lambda Opt, fb_val, invvar: Opt.get_f_n_b(Opt.ells_selected, Opt.theory_selected, Opt.theta_selected, Opt.biases_selected,
                               sum_biases_squared = False, bias_squared = False, fb = fb_val, inv_variance = invvar, analytical = analytical)
          
@@ -241,7 +258,7 @@ for fgnamefile in [fgnamefiles[0]]:
         fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
         results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
 
-        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}{analyticaltag}')
+        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}{analyticaltag}{usepoltag}')
       
 
 
@@ -259,7 +276,7 @@ for fgnamefile in [fgnamefiles[0]]:
         fcomb, ncomb, bcomb = f(result.x), n(result.x), b(result.x)
         results_array[:, 0] = np.array([fcomb, ncomb, bcomb])
         
-        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}{analyticaltag}_ofoptim')    
+        result.save(results_array, pathlib.Path(results_directory)/lmax_directory/inv_variance_dir/n_equals_b_dir, f'alens_{fb}{nocrossestag}{analyticaltag}_ofoptim{usepoltag}')    
 
         end_time = time.time()-startingtime
         analyticalname = 'analytical' if analytical else 'no analytical'

@@ -59,11 +59,43 @@ for e in estimators:
 
 lmaxes_configs = list(itertools.product(*lista_lmaxes))
 
-
 lmaxes_configs_input_to_try = data['lmaxes_configs_input_to_try']
-if len(lmaxes_configs_input_to_try) > 0:
-    lmaxes_configs = lmaxes_configs_input_to_try
 
+keys = list(estimators_dictionary.keys())
+keyscombs = list(itertools.product(keys, repeat = 2))
+
+if lmaxes_configs_input_to_try:
+    keyscombs = [(k, k) for k in keys]
+
+maxlist = []
+
+def get_specific_lmaxes(dic, e):
+    elemento = dic[e]
+    #names[e] = elemento['direc_name']
+    lmax_min, lmax_max = elemento['lmax_min'], elemento['lmax_max']
+    num = elemento['number']
+    lista = np.linspace(lmax_min, lmax_max, num, dtype = int)
+    return lista
+    
+for comb in keyscombs:
+    a, b = comb
+    
+    l = [get_specific_lmaxes(estimators_dictionary, a)]+[get_specific_lmaxes(estimators_dictionary, b)]
+    
+    combinations = list(itertools.product(*l))
+    
+    for c in combinations:
+        va, vb = c
+        swapped = [{b: vb}] + [{a: va}]
+        if swapped not in maxlist:
+            if a == b:
+                if va == vb:
+                    maxlist += [[{a: va}] + [{b: vb}]]
+            else:
+                maxlist += [[{a: va}] + [{b: vb}]]
+
+if lmaxes_configs_input_to_try:
+    print(maxlist)
 
 Lmin, Lmax = data['Lmin'], data['Lmax']
 
@@ -112,11 +144,19 @@ iMax = int(iMax)
 iMin = int(iMin)
 
 number_of_groups = size/Nsims
-number_of_configs_per_group = int(len(lmaxes_configs)/number_of_groups)
+#number_of_configs_per_group = int(len(lmaxes_configs)/number_of_groups)
+#k = int(rank/Nsims)
+#index = k*number_of_configs_per_group
+#index_plus = (k+1)*number_of_configs_per_group
+#lmaxes_configs = lmaxes_configs[index:index_plus]
+
+number_of_configs_per_group = int(len(maxlist)/number_of_groups)
 k = int(rank/Nsims)
 index = k*number_of_configs_per_group
 index_plus = (k+1)*number_of_configs_per_group
-lmaxes_configs = lmaxes_configs[index:index_plus]
+maxlist = maxlist[index:index_plus]
+
+
 
 #Prepare for shape, wcs
 
@@ -130,20 +170,31 @@ lmin_A, lmin_B = 30, 30
 
 validationtag = 'val'
 
-estimatorcombs = [(e, e) for e in estimators]
+#estimatorcombs = [(e, e) for e in estimators]
+
 
 for fgnamefile in fgnamefiles:
-    for lmaxes in lmaxes_configs:
+
+    for lista in maxlist:
+
+        estimatorstemp = []
+        for t in lista:
+            estimatorstemp += [list(t.keys())[0]]
+            
         lmaxes_dict = {}
         lmax_directory = ''
-        for e_index, e in enumerate(estimators):
-            l = lmaxes[e_index]
+        for e_index, e in enumerate(estimatorstemp):
+            l = lista[e_index][e]
             lmaxes_dict[e] = l
             lmax_directory += f'{names[e]}{l}'
 
+        lmax_directory = pathlib.Path(lmax_directory) 
+
+        estimatorcombs = [(estimatorstemp[0], estimatorstemp[1])]
+        
         for i in range(iMin, iMax):
 
-            dictionary = u.dictionary(savingdirectory, lmax_directory)
+            dictionary = u.dictionary(pathlib.Path(savingdirectory)/'all'/fgnamefile, lmax_directory)
             dictionary.create_subdictionary(noisedicttag)
             dictionary.create_subdictionary(trispectrumdicttag)
             dictionary.create_subdictionary(primarydicttag)
@@ -328,7 +379,7 @@ for fgnamefile in fgnamefiles:
             dictionary.add(kkkey, clkk)
             dictionary.add(kgkey, clkg)
             dictionary.add(ellskey, el)
-
+            
             if isinstance(nuA, list):
                 nu = nuA[0]
             else:

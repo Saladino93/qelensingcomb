@@ -16,7 +16,7 @@ from scipy.ndimage import gaussian_filter1d
 import utilities as u
 
 class Opt():
-    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, estimators_to_ignore = None, biases_errors = None, nocrosses = False):
+    def __init__(self, estimators, lmin_sel, lmax_sel, ells, theory, theta, biases, noises, noisepol = None, biaspol = None, estimators_to_ignore = None, biases_errors = None, nocrosses = False):
 
         self.ells = ells
         self.theta = theta
@@ -24,6 +24,8 @@ class Opt():
         self.noises = noises
         self.theory = theory
         self.biases_errors = biases_errors
+        self.noisepol = noisepol
+        self.biaspol = biaspol
         #TEMPORARY FOR NOW
         if estimators_to_ignore is not None:
             index = estimators.index(estimators_to_ignore)+1
@@ -85,10 +87,17 @@ class Opt():
         else:
             self.biases_errors_selected = None
 
+        if self.noisepol is not None:
+           self.noisepol_selected = self.noisepol[..., selected]
+           self.biaspol_selected = self.biaspol[..., selected]
+        else:
+           self.noisepol_selected = None
+           self.biaspol_selected = None
+
         self.theory_selected = self.theory[selected]
         self.nbins = len(self.ells_selected)
 
-        if nocrosses:
+        if nocrosses:#only for TT here
             identity = np.identity(self.noises_selected.shape[0])[..., None]
             self.noises_selected *= identity
             self.biases_selected *= identity
@@ -170,7 +179,7 @@ class Opt():
 
 
     def get_bias_term(self, ells, theory, bias, a, weight_per_l):
-        bias_part = self.get_bias_part(a, bias)
+        bias_part = self.get_bias_part(a, bias) if bias.ndim > 1 else bias
         biasterm = self._get_combined(ells, weight_per_l, bias_part, theory)
         return biasterm
 
@@ -234,19 +243,58 @@ class Opt():
         
         return result__
 
+    def get_pol_weights(self, combinednoise, polnoise):
+        c = combinednoise
+        p = polnoise #npolxlen(c)
+        npol = polnoise.shape[0]
+        N = np.zeros((len(c), npol+1, npol+1))
+        N[:, 0, 0] = c
+        for i in range(npol):
+            N[:, i+1, i+1] = polnoise[i]
+        invN = np.linalg.inv(N)
+        suminvN = np.einsum('mij -> m', invN)
+        weights = np.einsum('mij -> mi', invN)/suminvN[:, None]
+        return weights, suminvN**-1.
 
+    def get_bias_and_theta_term_with_pol(self, ells, theory, bias, noise, a, biaspol, noisepol):
 
-    def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False, noiseparameter = 1., analytical = True):
+        noise_part = self.get_bias_part(a, noise)
+        bias_part = self.get_bias_part(a, bias)
+        bias_part_pol = self.get_bias_part(a, biaspol)
+        npols = len(noisepol)
+        wpol, noisecombinedwithpol = self.get_pol_weights(noise_part, noisepol)
+        noisecombinedwithpol = np.moveaxis(noisecombinedwithpol, 0, -1)
         
+        wTT = wpol[:, 0]
+        extrapart = 0.
+        for i in range(npols+1):
+            extrapart += wTT*wpol[:, i]*bias_part_pol
+        bias_part *= wTT**2.
+        bias_part += extrapart
+
+        theta_part = u.getcovarianceauto1D(noisecombinedwithpol, theory, fsky = 1.0)        
+
+        return bias_part, theta_part
+
+    def get_f_n_b(self, ells, theory, theta, bias, sum_biases_squared = False, bias_squared = False, fb = 1., inv_variance = False, noiseparameter = 1., analytical = True, noise = None, biaspol = None, noisepol = None):
+         
         def f(x):
             a = self.get_a(x, inv_variance, analytical)
-            variance_part = self.get_variance_part(a, theta)
+             
+            if noisepol is not None:
+               newbias, theta_ = self.get_bias_and_theta_term_with_pol(ells, theory, bias, noise, a, biaspol, noisepol)
+               bias_ = newbias#1D
+               variance_part = theta_#1D
+            else:
+               theta_ = theta
+               bias_ = bias
+               variance_part = self.get_variance_part(a, theta_)
 
             weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance, analytical, fb)
 
             total_result = 0.
-
-            biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)**2.
+ 
+            biasterm = self.get_bias_term(ells, theory, bias_, a, weight_per_l)**2.
             squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.) 
 
             total_result = noiseparameter*squarednoiseterm+biasterm*fb
@@ -256,7 +304,11 @@ class Opt():
 
         def noisef(x):
             a = self.get_a(x, inv_variance, analytical)
-            variance_part = self.get_variance_part(a, theta)
+            if noisepol is not None:
+               _, theta_ = self.get_bias_and_theta_term_with_pol(ells, theory, bias, noise, a, biaspol, noisepol)
+            else:
+               theta_ = theta
+            variance_part = self.get_variance_part(a, theta_)
             weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance, analytical, fb)
             squarednoiseterm = self._get_combined(ells, weight_per_l**2., variance_part, theory**2.)
             noiseterm = np.sqrt(squarednoiseterm)
@@ -264,9 +316,13 @@ class Opt():
 
         def biasf(x):
             a = self.get_a(x, inv_variance, analytical)
-            variance_part = self.get_variance_part(a, theta)
+            if noisepol is not None:
+               bias_, theta_ = self.get_bias_and_theta_term_with_pol(ells, theory, bias, noise, a, biaspol, noisepol)
+            else:
+               bias_, theta_ = bias, theta
+            variance_part = self.get_variance_part(a, theta_)
             weight_per_l = self.get_weight_per_l(x, ells, theory, variance_part, inv_variance, analytical, fb)
-            biasterm = self.get_bias_term(ells, theory, bias, a, weight_per_l)
+            biasterm = self.get_bias_term(ells, theory, bias_, a, weight_per_l)
             return biasterm
 
         return f, noisef, biasf
@@ -277,7 +333,7 @@ class Opt():
         return np.trapz(y*ells, ells)*(2*np.pi)/(2*np.pi)**2*factor
        
 
-    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, analytical = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001, regtype = 'std', scale = 0.8, cross = 0.9, npopfactor = 1, ftol = 1e-16, filter_biases = False, sigma = 1.5):
+    def optimize(self, optversion, method = 'diff-ev', gtol = 5000, positive_weights: bool = True, x0 = None, bs0 = None, bounds = [0., 1.], noisebiasconstr = False, fb = 1., inv_variance = False, analytical = False, verbose = True, noiseparameter = 1., regularise = False, threshold = 0.001, regtype = 'std', scale = 0.8, cross = 0.9, npopfactor = 1, ftol = 1e-16, filter_biases = False, sigma = 1.5, usepol = False):
         '''
         Methods: diff-ev, SLSQP
         '''
@@ -296,6 +352,8 @@ class Opt():
                 v = np.random.rand(2)/3
             elif self.lenestimators == 4:
                 v = np.random.rand(3)/4
+            else:
+                v = np.random.rand(self.lenestimators-1)/self.lenestimators
             for a in v:
                 x0 += [a]
             x0 += [1.-np.sum(v)]
@@ -339,7 +397,15 @@ class Opt():
         else:
             prepare = lambda x: x
 
-        f, noisef, biasf = self.get_f_n_b(self.ells_selected, self.theory_selected, self.theta_selected, prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, analytical = analytical, noiseparameter = noiseparameter)
+        if usepol:
+            noisepol = self.noisepol_selected
+            biaspol = prepare(self.biaspol_selected)
+        else:
+            noisepol = None
+            biaspol = None
+            noise = None
+         
+        f, noisef, biasf = self.get_f_n_b(ells = self.ells_selected, theory = self.theory_selected, theta = self.theta_selected, bias = prepare(self.biases_selected), sum_biases_squared = sum_biases_squared, bias_squared = bias_squared, fb = fb, inv_variance = inv_variance, analytical = analytical, noiseparameter = noiseparameter, noise = self.noises_selected, noisepol = noisepol, biaspol = biaspol)
         self.f = f
         self.noisef = noisef
         self.biasf = biasf
@@ -406,7 +472,7 @@ class Opt():
                 reg = regbias
             
             return reg
-        
+         
         regulariser = get_reg(self.biases_selected, self.theory_selected, threshold, regtype)
 
     
